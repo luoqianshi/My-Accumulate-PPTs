@@ -1,0 +1,872 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Accumulate PPTs · HTML Slides Bookshelf</title>
+  <meta name="description" content="HTML 格式 PPT 导航与 iframe 全屏放映页面，以 3D 书架风格展示" />
+  <link rel="icon" href="assets/favicon.png" type="image/png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght,SOFT,WONK@9..144,500..800,80,1&family=Nunito:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <script>
+    tailwind = {
+      config: {
+        theme: {
+          extend: {
+            colors: {
+              paper: '#FDFCF8',
+              loam: '#2C2C24',
+              moss: '#5D7052',
+              mist: '#F3F4F1',
+              clay: '#C18C5D',
+              sand: '#E6DCCD',
+              stone: '#F0EBE5',
+              timber: '#DED8CF',
+              grass: '#78786C',
+              shelf: '#C4B091',
+              shelfDark: '#A89270'
+            },
+            fontFamily: {
+              display: ['Fraunces', 'Georgia', 'serif'],
+              body: ['Nunito', 'system-ui', 'sans-serif']
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    :root { color-scheme: light; }
+    html { scroll-behavior: smooth; }
+    body {
+      min-height: 100vh;
+      overflow-x: hidden;
+      background: #FDFCF8;
+      color: #2C2C24;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    /* Subtle paper grain texture */
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 60;
+      opacity: .025;
+      mix-blend-mode: multiply;
+      background-image:
+        radial-gradient(circle at 20% 30%, rgba(44,44,36,.7) 0 1px, transparent 1.5px),
+        radial-gradient(circle at 70% 20%, rgba(93,112,82,.55) 0 1px, transparent 1.6px),
+        radial-gradient(circle at 45% 75%, rgba(193,140,93,.6) 0 1px, transparent 1.7px);
+      background-size: 40px 40px, 56px 56px, 76px 76px;
+    }
+
+    /* Organic blob shapes */
+    .blob-a { border-radius: 60% 40% 30% 70% / 60% 30% 70% 40%; }
+    .blob-b { border-radius: 36% 64% 68% 32% / 46% 38% 62% 54%; }
+    .blob-c { border-radius: 48% 52% 36% 64% / 58% 44% 56% 42%; }
+
+    /* Cinema intro */
+    .cinema-intro {
+      position: fixed;
+      inset: 0;
+      z-index: 80;
+      pointer-events: none;
+      overflow: hidden;
+      background:
+        radial-gradient(circle at 50% 48%, rgba(253,252,248,.04), transparent 22%),
+        linear-gradient(125deg, #1a2415 0%, #3e4d36 42%, #fdfcf8 100%);
+      animation: introFade 3.2s cubic-bezier(.22,1,.36,1) forwards;
+      perspective: 1200px;
+    }
+    .cinema-intro::before,
+    .cinema-intro::after {
+      content: "";
+      position: absolute;
+      inset: -16%;
+      background:
+        radial-gradient(ellipse at 20% 42%, rgba(230,220,205,.32) 0 10%, transparent 30%),
+        radial-gradient(ellipse at 74% 36%, rgba(193,140,93,.28) 0 12%, transparent 32%),
+        radial-gradient(ellipse at 52% 78%, rgba(93,112,82,.4) 0 16%, transparent 40%);
+      filter: blur(20px);
+      transform-origin: 50% 50%;
+      animation: cameraDrift 3.2s cubic-bezier(.22,1,.36,1) forwards;
+    }
+    .cinema-intro::after {
+      background:
+        linear-gradient(90deg, rgba(10,15,8,.68), transparent 18%, transparent 82%, rgba(10,15,8,.64)),
+        repeating-linear-gradient(90deg, transparent 0 78px, rgba(255,255,255,.06) 78px 80px);
+      mix-blend-mode: soft-light;
+      filter: blur(0);
+      animation: gateOpen 3.2s cubic-bezier(.22,1,.36,1) forwards;
+    }
+
+    /* Hero stage */
+    .hero-stage {
+      animation: heroReveal 1.7s .5s cubic-bezier(.22,1,.36,1) both;
+    }
+
+    /* ── Leaf Sway Animations ──
+       Wind rustling through the Hero text — each phrase drifts independently
+       like foliage caught in a gentle breeze.
+       Uses animation-play-state: paused + JS to start after entrance completes. */
+    .sway-g1, .sway-g2, .sway-g3, .sway-g4, .sway-g5, .sway-g6, .sway-g7,
+    .hero-subtext-sway, .hero-badge-sway {
+      display: inline-block;
+      transform-origin: bottom center;
+      will-change: transform;
+      animation-play-state: paused;
+    }
+    .sway-active .sway-g1,
+    .sway-active .sway-g2,
+    .sway-active .sway-g3,
+    .sway-active .sway-g4,
+    .sway-active .sway-g5,
+    .sway-active .sway-g6,
+    .sway-active .sway-g7,
+    .sway-active.hero-subtext-sway,
+    .sway-active.hero-badge-sway {
+      animation-play-state: running;
+    }
+
+    @keyframes sway-1 {
+      0%,100% { transform: translateY(0) rotate(0deg) skewX(0deg); }
+      20%      { transform: translateY(-3px) rotate(.8deg) skewX(.4deg); }
+      50%      { transform: translateY(1.5px) rotate(-.5deg) skewX(-.25deg); }
+      75%      { transform: translateY(-1.5px) rotate(.4deg) skewX(.2deg); }
+    }
+    @keyframes sway-2 {
+      0%,100% { transform: translateY(0) rotate(0deg) skewX(0deg); }
+      30%      { transform: translateY(2.5px) rotate(-.9deg) skewX(-.5deg); }
+      60%      { transform: translateY(-2px) rotate(.7deg) skewX(.3deg); }
+      85%      { transform: translateY(1px) rotate(-.3deg) skewX(-.15deg); }
+    }
+    @keyframes sway-3 {
+      0%,100% { transform: translateY(0) rotate(0deg) skewX(0deg); }
+      25%      { transform: translateY(-2.5px) rotate(.6deg) skewX(.35deg); }
+      55%      { transform: translateY(1.5px) rotate(-.45deg) skewX(-.2deg); }
+      80%      { transform: translateY(-1px) rotate(.25deg) skewX(.12deg); }
+    }
+    @keyframes sway-4 {
+      0%,100% { transform: translateY(0) skewX(0deg) rotate(0deg); }
+      35%      { transform: translateY(-2.5px) skewX(.5deg) rotate(.6deg); }
+      65%      { transform: translateY(2px) skewX(-.35deg) rotate(-.3deg); }
+      90%      { transform: translateY(-1px) skewX(.15deg) rotate(.2deg); }
+    }
+    @keyframes sway-5 {
+      0%,100% { transform: translateY(0) rotate(0deg) skewX(0deg); }
+      15%      { transform: translateY(-3.5px) rotate(1deg) skewX(.5deg); }
+      45%      { transform: translateY(2px) rotate(-.6deg) skewX(-.3deg); }
+      70%      { transform: translateY(-1.5px) rotate(.4deg) skewX(.15deg); }
+    }
+
+    /* Staggered sway for each phrase — natural leaf cluster feel */
+    .hero-headline .sway-g1 { animation: sway-1 4.8s ease-in-out infinite; animation-delay: 0s; }
+    .hero-headline .sway-g2 { animation: sway-2 5.2s ease-in-out infinite; animation-delay: .5s; }
+    .hero-headline .sway-g3 { animation: sway-3 4.5s ease-in-out infinite; animation-delay: .9s; }
+    .hero-headline .sway-g4 { animation: sway-4 5.5s ease-in-out infinite; animation-delay: .3s; }
+    .hero-headline .sway-g5 { animation: sway-5 4.2s ease-in-out infinite; animation-delay: .7s; }
+    .hero-headline .sway-g6 { animation: sway-1 5.0s ease-in-out infinite; animation-delay: 1.1s; }
+    .hero-headline .sway-g7 { animation: sway-3 4.7s ease-in-out infinite; animation-delay: .4s; }
+
+    /* Subtext and badge sway more gently */
+    .hero-subtext-sway { animation: sway-2 6s ease-in-out infinite; animation-delay: 1.8s; }
+    .hero-badge-sway   { animation: sway-4 5.5s ease-in-out infinite; animation-delay: 1.4s; }
+
+    /* Hero copy entrance */
+    .hero-copy > * {
+      opacity: 0;
+      transform: translateY(28px);
+      animation: riseIn .85s cubic-bezier(.22,1,.36,1) forwards;
+    }
+    .hero-copy > *:nth-child(1) { animation-delay: 1.1s; }
+    .hero-copy > *:nth-child(2) { animation-delay: 1.24s; }
+    .hero-copy > *:nth-child(3) { animation-delay: 1.38s; }
+    .hero-copy > *:nth-child(4) { animation-delay: 1.52s; }
+
+    /* Book card 3D */
+    .book-card {
+      perspective: 900px;
+    }
+    .book-inner {
+      transform-style: preserve-3d;
+      transition: transform .5s cubic-bezier(.22,1,.36,1), box-shadow .5s cubic-bezier(.22,1,.36,1);
+      will-change: transform;
+    }
+    .book-inner.is-tilting {
+      transition: box-shadow .3s ease;
+    }
+    .book-spine {
+      transition: width .4s cubic-bezier(.22,1,.36,1), opacity .4s ease;
+    }
+    .book-card:hover .book-spine {
+      width: 8px;
+      opacity: 1;
+    }
+    .book-shine {
+      transition: opacity .4s ease, background .1s ease;
+    }
+    .book-card:hover .book-shine {
+      opacity: 1;
+    }
+
+    /* Card entrance */
+    .reveal-card {
+      opacity: 0;
+      transform: translateY(32px);
+      animation: cardIn .75s cubic-bezier(.22,1,.36,1) forwards;
+    }
+
+    /* Featured card */
+    .book-featured .book-inner {
+      min-height: 100%;
+    }
+
+    /* Filter pills */
+    .filter-pill {
+      transition: all .3s cubic-bezier(.22,1,.36,1);
+    }
+    .filter-pill.active {
+      background: #5D7052;
+      color: #F3F4F1;
+      border-color: #5D7052;
+    }
+    .filter-pill:not(.active):hover {
+      background: rgba(93,112,82,.08);
+      border-color: rgba(93,112,82,.3);
+    }
+
+    /* Viewer */
+    .viewer-open { overflow: hidden; }
+    .viewer-shell {
+      transform: translateY(20px) scale(.985);
+      opacity: 0;
+      transition: transform .5s cubic-bezier(.22,1,.36,1), opacity .4s ease;
+    }
+    .viewer-shell.is-visible {
+      transform: translateY(0) scale(1);
+      opacity: 1;
+    }
+
+    /* Parallax blobs */
+    @media (prefers-reduced-motion: no-preference) {
+      .parallax-blob {
+        will-change: transform;
+        transition: transform .15s linear;
+      }
+    }
+
+    /* Scrollbar styling for bookshelf */
+    .bookshelf-grid::-webkit-scrollbar {
+      height: 6px;
+    }
+    .bookshelf-grid::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    .bookshelf-grid::-webkit-scrollbar-thumb {
+      background: #DED8CF;
+      border-radius: 3px;
+    }
+
+    @keyframes introFade {
+      0%, 70% { opacity: 1; }
+      100% { opacity: 0; visibility: hidden; }
+    }
+    @keyframes cameraDrift {
+      0% { transform: translate3d(-10%, 6%, -160px) rotate(-6deg) scale(1.3); }
+      45% { transform: translate3d(4%, -2%, 80px) rotate(1.5deg) scale(1.06); }
+      100% { transform: translate3d(0, 0, 400px) rotate(0deg) scale(1.5); }
+    }
+    @keyframes gateOpen {
+      0% { clip-path: inset(0 0 0 0); opacity: 1; }
+      60% { clip-path: inset(7% 13% 7% 13% round 32px); opacity: .9; }
+      100% { clip-path: inset(48% 50% 48% 50% round 999px); opacity: 0; }
+    }
+    @keyframes heroReveal {
+      0% { transform: scale(1.1) translateY(28px); filter: blur(16px) saturate(.75); opacity: .12; }
+      100% { transform: scale(1) translateY(0); filter: blur(0) saturate(1); opacity: 1; }
+    }
+    @keyframes riseIn {
+      to { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes cardIn {
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: .001ms !important;
+        animation-iteration-count: 1 !important;
+        scroll-behavior: auto !important;
+        transition-duration: .001ms !important;
+      }
+      .cinema-intro { display: none; }
+      .hero-copy > *, .reveal-card { opacity: 1; transform: none; }
+      .sway-g1, .sway-g2, .sway-g3, .sway-g4, .sway-g5, .sway-g6, .sway-g7,
+      .hero-subtext-sway, .hero-badge-sway { animation: none !important; }
+    }
+  </style>
+</head>
+<body class="font-body antialiased selection:bg-clay/20 selection:text-loam">
+  <div class="cinema-intro" aria-hidden="true"></div>
+
+  <!-- Navigation -->
+  <header class="sticky top-5 z-40 mx-auto flex w-[min(90rem,calc(100%-2rem))] items-center justify-between rounded-full border border-timber/50 bg-white/65 px-5 py-3 shadow-[0_4px_24px_-8px_rgba(44,44,36,.1)] backdrop-blur-2xl sm:px-6">
+    <a href="#top" class="flex items-center gap-3 rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-moss/60 focus-visible:ring-offset-2">
+      <span class="grid h-10 w-10 place-items-center rounded-full bg-moss text-mist shadow-[0_2px_12px_-2px_rgba(93,112,82,.35)]">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 19.5V5.8c0-1.1.9-2 2-2h11.5A2.5 2.5 0 0 1 20 6.3v13.2H7.2A3.2 3.2 0 0 1 4 16.3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M8 8h8M8 12h6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      </span>
+      <span>
+        <span class="block font-display text-[17px] font-semibold leading-none text-loam tracking-[-0.01em]">Accumulate PPTs</span>
+        <span class="text-[11px] font-semibold uppercase tracking-[.2em] text-grass/80 mt-0.5 block">HTML Slides</span>
+      </span>
+    </a>
+    <nav class="hidden items-center gap-1 text-[13px] font-semibold text-loam/80 md:flex" aria-label="主导航">
+      <a class="rounded-full px-4 py-2 transition-colors duration-300 hover:bg-moss/8 hover:text-loam focus:outline-none focus-visible:ring-2 focus-visible:ring-moss/50" href="#gallery">PPT 书架</a>
+      <a class="rounded-full px-4 py-2 transition-colors duration-300 hover:bg-moss/8 hover:text-loam focus:outline-none focus-visible:ring-2 focus-visible:ring-moss/50" href="#viewer-guide">放映说明</a>
+    </nav>
+    <a href="#gallery" class="rounded-full bg-moss px-5 py-2.5 text-[13px] font-bold text-mist shadow-[0_2px_14px_-3px_rgba(93,112,82,.35)] transition-all duration-300 hover:shadow-[0_4px_20px_-4px_rgba(93,112,82,.45)] hover:-translate-y-0.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-moss/50 focus-visible:ring-offset-2 active:translate-y-0">浏览书架</a>
+  </header>
+
+  <main id="top" class="relative overflow-hidden">
+    <!-- Hero Section (simplified) -->
+    <section class="hero-stage relative mx-auto w-[min(90rem,calc(100%-2rem))] py-24 sm:py-32 lg:py-36">
+      <!-- Background ambient blobs -->
+      <div class="parallax-blob absolute -left-32 top-16 h-80 w-80 bg-moss/12 blur-[80px] blob-a" aria-hidden="true" data-speed="0.03"></div>
+      <div class="parallax-blob absolute -right-24 bottom-8 h-[28rem] w-[28rem] bg-clay/14 blur-[90px] blob-b" aria-hidden="true" data-speed="0.05"></div>
+      <div class="parallax-blob absolute left-[40%] top-[60%] h-48 w-48 bg-sand/40 blur-[60px] blob-c" aria-hidden="true" data-speed="0.02"></div>
+
+      <!-- Hero Copy (centered, no right visual) -->
+      <div class="hero-copy relative z-10 max-w-3xl mx-auto text-center">
+        <p class="hero-badge-sway inline-flex items-center gap-2 rounded-full border border-timber/60 bg-white/50 px-5 py-2 text-[11px] font-bold uppercase tracking-[.22em] text-moss backdrop-blur-sm">
+          <span class="h-1.5 w-1.5 rounded-full bg-moss"></span>
+          PDF Paper → HTML Slide
+        </p>
+        <h1 class="hero-headline mt-8 font-display text-[2.5rem] font-semibold leading-[1.15] tracking-[-0.03em] text-loam sm:text-[3.25rem] lg:text-[4.25rem]">
+          <span class="sway-g1">论文不再困于PDF，</span><br class="hidden sm:block" />
+          <span class="sway-g2">每一页都是可交互的网页</span>
+        </h1>
+        <p class="hero-subtext-sway mt-6 max-w-xl mx-auto text-base leading-[1.8] text-grass/90 font-light sm:text-[1.0625rem]">
+          ——你的下一份论文PPT，何必是一份PPT。
+        </p>
+        <div class="mt-10 flex flex-col gap-4 sm:flex-row sm:justify-center">
+          <a href="#gallery" class="inline-flex h-13 items-center justify-center rounded-full bg-moss px-8 text-[15px] font-bold text-mist shadow-[0_2px_16px_-4px_rgba(93,112,82,.4)] transition-all duration-300 hover:shadow-[0_6px_28px_-6px_rgba(93,112,82,.5)] hover:-translate-y-0.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-moss/50 focus-visible:ring-offset-2 active:translate-y-0">
+            浏览书架
+          </a>
+          <button id="open-first" type="button" class="inline-flex h-13 cursor-pointer items-center justify-center rounded-full border border-clay/70 px-8 text-[15px] font-bold text-clay transition-all duration-300 hover:bg-clay hover:text-white hover:border-clay focus:outline-none focus-visible:ring-2 focus-visible:ring-clay/50 focus-visible:ring-offset-2 active:scale-[0.98]">
+            放映首份
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Gallery Section -->
+    <section id="gallery" class="relative mx-auto w-[min(90rem,calc(100%-2rem))] py-16 sm:py-24">
+      <!-- Gallery Header + Toolbar -->
+      <div class="mb-12">
+        <div class="flex flex-col justify-between gap-6 md:flex-row md:items-end">
+          <div class="max-w-2xl">
+            <p class="text-[11px] font-bold uppercase tracking-[.22em] text-moss/80">Bookshelf</p>
+            <h2 class="mt-4 font-display text-[2.75rem] font-semibold leading-[1.1] tracking-[-0.025em] text-loam md:text-[3.5rem]">PPT 书架</h2>
+          </div>
+          <div class="rounded-full border border-timber/50 bg-white/50 px-5 py-2.5 text-[13px] font-semibold text-grass/70 shadow-[0_2px_12px_-4px_rgba(44,44,36,.06)] backdrop-blur-sm whitespace-nowrap">
+            <span id="deck-count">0</span> 份已收录
+          </div>
+        </div>
+
+        <!-- Search & Filter Toolbar -->
+        <div class="mt-8 flex flex-col gap-4 sm:flex-row sm:items-center">
+          <div class="relative flex-1 max-w-md">
+            <svg class="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-grass/40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+            <input id="search-input" type="text" placeholder="搜索标题或描述..." class="search-input w-full rounded-full border border-timber/50 bg-white/60 py-3 pl-11 pr-5 text-[14px] text-loam placeholder:text-grass/40 backdrop-blur-sm focus:outline-none focus:border-moss/40 transition-all duration-300">
+          </div>
+          <div id="filter-pills" class="flex flex-wrap gap-2">
+            <!-- Pills rendered by JS -->
+          </div>
+        </div>
+      </div>
+
+      <!-- Bookshelf Grid -->
+      <div id="deck-grid" class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4" aria-live="polite"></div>
+      <div id="load-sentinel" style="min-height:1px"></div>
+      <div id="empty-state" class="hidden py-20 text-center">
+        <div class="mx-auto w-16 h-16 rounded-full bg-stone/50 flex items-center justify-center mb-4">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#78786C" stroke-width="1.5" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+        </div>
+        <p class="text-grass/50 font-light text-[15px]">没有找到匹配的演示文稿</p>
+      </div>
+      <div class="mt-14 flex justify-center">
+        <button id="load-more" type="button" class="hidden h-12 cursor-pointer rounded-full border border-clay/60 px-8 text-[14px] font-bold text-clay transition-all duration-300 hover:bg-clay hover:text-white hover:border-clay focus:outline-none focus-visible:ring-2 focus-visible:ring-clay/50 focus-visible:ring-offset-2 active:scale-[0.98]">
+          加载更多
+        </button>
+      </div>
+    </section>
+
+    <!-- Viewer Guide Section -->
+    <section id="viewer-guide" class="mx-auto w-[min(72rem,calc(100%-2rem))] pb-28 pt-8">
+      <div class="rounded-[2.5rem_1.5rem_3rem_2rem] border border-moss/20 bg-moss p-10 text-mist shadow-[0_20px_60px_-24px_rgba(93,112,82,.4)] sm:p-14 lg:p-16 relative overflow-hidden">
+        <div class="absolute -right-20 -top-20 h-64 w-64 bg-white/5 blur-[80px] rounded-full" aria-hidden="true"></div>
+        <div class="absolute -left-16 -bottom-16 h-48 w-48 bg-clay/10 blur-[60px] rounded-full" aria-hidden="true"></div>
+        <div class="relative z-10">
+          <p class="text-[11px] font-bold uppercase tracking-[.22em] text-mist/50">Immersive Player</p>
+          <h2 class="mt-4 font-display text-[2rem] font-semibold leading-[1.15] tracking-[-0.02em] sm:text-[2.75rem] lg:text-[3.25rem] max-w-3xl">
+            点击任意书本，即可在当前页面嵌入放映。
+          </h2>
+          <p class="mt-6 max-w-2xl text-base leading-[1.75] text-mist/70 font-light">
+            放映层使用 iframe 加载目标 HTML 页面，保留原始 PPT 的交互逻辑；右上角提供新窗口打开、iframe 全屏与关闭操作，适合快速预览或进入正式演示。
+          </p>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Footer -->
+  <footer class="border-t border-timber/40 bg-stone/30 py-10">
+    <div class="mx-auto w-[min(90rem,calc(100%-2rem))] flex flex-col items-center justify-between gap-4 sm:flex-row">
+      <p class="text-[13px] text-grass/50 font-light">Accumulate PPTs · 积累每一页思想，照亮每一次讲述</p>
+      <p class="text-[13px] text-grass/40 font-light">Crafted with care · Built to last</p>
+    </div>
+  </footer>
+
+  <!-- Viewer Modal -->
+  <section id="viewer" class="fixed inset-0 z-50 hidden bg-loam/60 p-3 backdrop-blur-xl sm:p-6" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="viewer-title">
+    <div class="viewer-shell flex h-full flex-col overflow-hidden rounded-[1.5rem] border border-timber/40 bg-paper shadow-[0_24px_80px_-24px_rgba(44,44,36,.25)] sm:rounded-[2rem]">
+      <div class="flex flex-wrap items-center gap-3 border-b border-timber/40 bg-white/60 px-5 py-3.5 backdrop-blur-xl sm:px-6">
+        <div class="min-w-0 flex-1">
+          <p class="text-[10px] font-bold uppercase tracking-[.2em] text-moss/60">Now Presenting</p>
+          <h2 id="viewer-title" class="truncate font-display text-lg font-semibold tracking-[-0.01em] text-loam sm:text-xl">HTML PPT</h2>
+        </div>
+        <a id="viewer-open-new" href="#" target="_blank" rel="noopener" class="inline-flex h-10 items-center gap-2 rounded-full border border-timber/50 bg-white/60 px-4 text-[13px] font-semibold text-loam transition-all duration-300 hover:bg-stone focus:outline-none focus-visible:ring-2 focus-visible:ring-moss/40">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M14 4h6v6M20 4l-9 9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M20 14v4a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+          新窗口
+        </a>
+        <button id="viewer-fullscreen" type="button" class="inline-flex h-10 cursor-pointer items-center gap-2 rounded-full bg-moss px-4 text-[13px] font-semibold text-mist shadow-[0_2px_12px_-4px_rgba(93,112,82,.4)] transition-all duration-300 hover:shadow-[0_4px_20px_-6px_rgba(93,112,82,.5)] hover:-translate-y-0.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-moss/50 focus-visible:ring-offset-2 active:translate-y-0">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M8 3H5a2 2 0 0 0-2 2v3M21 8V5a2 2 0 0 0-2-2h-3M16 21h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          全屏
+        </button>
+        <button id="viewer-close" type="button" class="grid h-10 w-10 cursor-pointer place-items-center rounded-full border border-timber/50 bg-white/60 text-loam transition-all duration-300 hover:bg-stone focus:outline-none focus-visible:ring-2 focus-visible:ring-moss/40" aria-label="关闭放映窗口">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        </button>
+      </div>
+      <iframe id="viewer-frame" title="HTML PPT iframe 放映窗口" class="h-full w-full flex-1 bg-white" allow="fullscreen; autoplay; clipboard-read; clipboard-write" allowfullscreen loading="lazy"></iframe>
+    </div>
+  </section>
+
+  <!-- Book Card Template -->
+  <template id="deck-card-template">
+    <article class="book-card reveal-card group" data-kind="" data-title="" data-desc="">
+      <div class="book-inner relative overflow-hidden rounded-2xl bg-[#FEFEFA] shadow-[0_2px_20px_-6px_rgba(44,44,36,.08)] cursor-pointer">
+        <!-- Spine edge -->
+        <div class="book-spine absolute left-0 top-0 bottom-0 w-[5px] rounded-l-2xl opacity-70 z-10"></div>
+
+        <!-- Cover preview area -->
+        <div class="book-preview relative h-40 overflow-hidden">
+          <div class="book-cover-bg absolute inset-0"></div>
+          <!-- Decorative shapes -->
+          <div class="absolute left-5 top-5 h-20 w-20 rounded-full opacity-20 blur-xl blob-a" style="background:rgba(255,255,255,.6)"></div>
+          <div class="absolute right-4 bottom-4 h-24 w-24 rounded-full opacity-15 blur-2xl blob-b" style="background:rgba(255,255,255,.4)"></div>
+          <!-- Fallback presentation icon -->
+          <div class="absolute inset-0 flex items-center justify-center opacity-10">
+            <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" aria-hidden="true"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
+          </div>
+          <!-- Gradient fade to content -->
+          <div class="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-[#FEFEFA] to-transparent"></div>
+          <!-- Badges -->
+          <span class="deck-index absolute top-3 left-4 rounded-full bg-white/75 px-3 py-1 text-[10px] font-bold uppercase tracking-[.18em] text-moss/80 backdrop-blur-sm shadow-sm"></span>
+          <span class="deck-kind absolute top-3 right-3 rounded-full bg-white/75 px-3 py-1 text-[10px] font-semibold text-grass/70 backdrop-blur-sm shadow-sm"></span>
+        </div>
+
+        <!-- Cover content -->
+        <div class="relative px-5 pb-5 pt-1">
+          <h3 class="deck-title font-display text-[1.0625rem] font-semibold leading-snug tracking-[-0.01em] text-loam line-clamp-2 min-h-[2.6em]"></h3>
+          <p class="deck-description mt-2 text-[12px] leading-[1.65] text-grass/65 font-light line-clamp-2"></p>
+          <div class="mt-4 flex items-center gap-2.5">
+            <button type="button" class="deck-play inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-full bg-moss px-3.5 text-[11px] font-semibold text-mist shadow-[0_2px_10px_-3px_rgba(93,112,82,.3)] transition-all duration-300 hover:shadow-[0_4px_14px_-4px_rgba(93,112,82,.4)] hover:-translate-y-0.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-moss/50">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="m8 5 11 7-11 7V5Z"/></svg>
+              放映
+            </button>
+            <a class="deck-link inline-flex h-8 items-center justify-center rounded-full border border-timber/50 px-2.5 text-grass/60 transition-all duration-300 hover:text-loam hover:border-timber hover:bg-stone/30 focus:outline-none focus-visible:ring-2 focus-visible:ring-moss/40" target="_blank" rel="noopener" title="在新标签页打开">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 4h6v6"/><path d="M20 4l-9 9"/><path d="M20 14v4a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h4"/></svg>
+            </a>
+          </div>
+        </div>
+
+        <!-- 3D Shine overlay -->
+        <div class="book-shine pointer-events-none absolute inset-0 rounded-2xl opacity-0" style="background: linear-gradient(105deg, transparent 40%, rgba(255,255,255,.12) 45%, rgba(255,255,255,.04) 50%, transparent 55%)"></div>
+      </div>
+    </article>
+  </template>
+
+  <!-- Featured Card Template (first card, larger) -->
+  <template id="deck-featured-template">
+    <article class="book-card book-featured reveal-card group sm:col-span-2 lg:col-span-2" data-kind="" data-title="" data-desc="">
+      <div class="book-inner relative overflow-hidden rounded-2xl bg-[#FEFEFA] shadow-[0_2px_24px_-6px_rgba(44,44,36,.1)] cursor-pointer">
+        <!-- Spine edge -->
+        <div class="book-spine absolute left-0 top-0 bottom-0 w-[6px] rounded-l-2xl opacity-70 z-10"></div>
+
+        <div class="flex flex-col sm:flex-row">
+          <!-- Cover preview area (wider for featured) -->
+          <div class="book-preview relative sm:w-2/5 h-44 sm:h-auto sm:min-h-[16rem] overflow-hidden flex-shrink-0">
+            <div class="book-cover-bg absolute inset-0"></div>
+            <div class="absolute left-8 top-8 h-28 w-28 rounded-full opacity-20 blur-2xl blob-a" style="background:rgba(255,255,255,.6)"></div>
+            <div class="absolute right-6 bottom-6 h-32 w-32 rounded-full opacity-15 blur-2xl blob-c" style="background:rgba(255,255,255,.4)"></div>
+            <!-- Decorative grid pattern -->
+            <div class="absolute inset-0 flex items-center justify-center opacity-[.07]">
+              <svg width="96" height="96" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width=".8" aria-hidden="true"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
+            </div>
+            <div class="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-[#FEFEFA] to-transparent sm:hidden"></div>
+            <!-- Featured badge -->
+            <span class="absolute top-4 left-4 inline-flex items-center gap-1.5 rounded-full bg-white/80 px-3.5 py-1.5 text-[10px] font-bold uppercase tracking-[.18em] text-moss backdrop-blur-sm shadow-sm">
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+              Featured
+            </span>
+            <span class="deck-kind absolute top-4 right-4 rounded-full bg-white/80 px-3 py-1 text-[10px] font-semibold text-grass/70 backdrop-blur-sm shadow-sm"></span>
+          </div>
+
+          <!-- Content area (wider for featured) -->
+          <div class="relative flex-1 px-6 py-5 sm:px-7 sm:py-6">
+            <span class="deck-index text-[10px] font-bold uppercase tracking-[.18em] text-moss/60"></span>
+            <h3 class="deck-title mt-2 font-display text-[1.375rem] font-semibold leading-snug tracking-[-0.015em] text-loam sm:text-[1.5rem]"></h3>
+            <p class="deck-description mt-3 text-[13px] leading-[1.7] text-grass/70 font-light line-clamp-3 sm:line-clamp-4"></p>
+            <div class="mt-5 flex items-center gap-3">
+              <button type="button" class="deck-play inline-flex h-10 cursor-pointer items-center gap-2 rounded-full bg-moss px-5 text-[13px] font-semibold text-mist shadow-[0_2px_12px_-4px_rgba(93,112,82,.35)] transition-all duration-300 hover:shadow-[0_4px_20px_-6px_rgba(93,112,82,.45)] hover:-translate-y-0.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-moss/50">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="m8 5 11 7-11 7V5Z"/></svg>
+                嵌入放映
+              </button>
+              <a class="deck-link inline-flex h-10 items-center gap-2 rounded-full border border-clay/60 px-5 text-[13px] font-semibold text-clay transition-all duration-300 hover:bg-clay hover:text-white hover:border-clay focus:outline-none focus-visible:ring-2 focus-visible:ring-clay/50 focus-visible:ring-offset-2" target="_blank" rel="noopener">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 4h6v6"/><path d="M20 4l-9 9"/><path d="M20 14v4a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h4"/></svg>
+                打开原页
+              </a>
+            </div>
+          </div>
+        </div>
+
+        <!-- 3D Shine overlay -->
+        <div class="book-shine pointer-events-none absolute inset-0 rounded-2xl opacity-0" style="background: linear-gradient(105deg, transparent 40%, rgba(255,255,255,.1) 45%, rgba(255,255,255,.03) 50%, transparent 55%)"></div>
+      </div>
+    </article>
+  </template>
+
+  <script>
+    const embeddedDecks = [
+      {
+        title: 'Maize Tassels Detection: A Benchmark of the State of the Art',
+        file: 'paper-slides/maize_tassels_presentation.html',
+        description: '玉米雄穗检测研究演示，聚焦遥感/视觉检测方法与基准对比。',
+        kind: '期刊/会议',
+        accent: 'rgba(93,112,82,.2)'
+      },
+      {
+        title: '低空航拍可见光图像快速检测甘蔗幼苗群体数量',
+        file: 'paper-slides/sugarcane_thesis_presentation.html',
+        description: '面向低空航拍可见光图像的甘蔗幼苗群体数量检测论文汇报。',
+        kind: '学位论文',
+        accent: 'rgba(193,140,93,.22)'
+      }
+    ];
+
+    const PAGE_SIZE = 30;
+    const slideDirectory = 'paper-slides/';
+    const manifestUrl = 'slides-manifest.json';
+    let decks = [];
+    let loaded = 0;
+    let activeFilter = 'all';
+    let searchQuery = '';
+
+    const grid = document.getElementById('deck-grid');
+    const template = document.getElementById('deck-card-template');
+    const featuredTemplate = document.getElementById('deck-featured-template');
+    const deckCount = document.getElementById('deck-count');
+    const loadMore = document.getElementById('load-more');
+    const sentinel = document.getElementById('load-sentinel');
+    const viewer = document.getElementById('viewer');
+    const viewerShell = viewer.querySelector('.viewer-shell');
+    const viewerTitle = document.getElementById('viewer-title');
+    const viewerFrame = document.getElementById('viewer-frame');
+    const viewerOpenNew = document.getElementById('viewer-open-new');
+    const viewerFullscreen = document.getElementById('viewer-fullscreen');
+    const viewerClose = document.getElementById('viewer-close');
+    const openFirst = document.getElementById('open-first');
+    const searchInput = document.getElementById('search-input');
+    const filterPillsContainer = document.getElementById('filter-pills');
+    const emptyState = document.getElementById('empty-state');
+
+    /* ── Utility ── */
+    function titleFromFile(file) {
+      return decodeURIComponent(file.split('/').pop().replace(/\.html$/i, '').replace(/[-_]+/g, ' ')).replace(/\b\w/g, c => c.toUpperCase());
+    }
+
+    function normalizeFilePath(file) {
+      const n = file.replace(/^\.\//, '').replace(/^\//, '');
+      return n.startsWith(slideDirectory) ? n : `${slideDirectory}${n}`;
+    }
+
+    function accentToSpineColor(accent) {
+      if (accent.includes('93,112,82')) return '#5D7052';
+      if (accent.includes('193,140,93')) return '#C18C5D';
+      if (accent.includes('97,145,211')) return '#6191D3';
+      if (accent.includes('57,102,162')) return '#3966A2';
+      return '#5D7052';
+    }
+
+    function accentToCoverGradient(accent) {
+      const spine = accentToSpineColor(accent);
+      return `linear-gradient(135deg, ${spine}33 0%, ${spine}18 50%, ${spine}08 100%)`;
+    }
+
+    function deckFromPath(file, index, metadata = {}) {
+      const normalizedFile = normalizeFilePath(file);
+      const existing = embeddedDecks.find(d => d.file === normalizedFile);
+      return {
+        title: metadata.title || existing?.title || titleFromFile(normalizedFile),
+        file: normalizedFile,
+        description: metadata.description || existing?.description || '从 paper-slides 目录发现的 HTML 格式 PPT，可直接嵌入放映或打开原页。',
+        kind: metadata.kind || existing?.kind || '期刊/会议',
+        accent: metadata.accent || existing?.accent || (index % 2 === 0 ? 'rgba(93,112,82,.2)' : 'rgba(193,140,93,.22)')
+      };
+    }
+
+    /* ── Discovery ── */
+    async function fetchManifestDecks() {
+      const r = await fetch(`${manifestUrl}?v=${Date.now()}`, { cache: 'no-store' });
+      if (!r.ok) throw new Error('Manifest unavailable');
+      const data = await r.json();
+      const slides = Array.isArray(data) ? data : data.slides;
+      if (!Array.isArray(slides) || !slides.length) throw new Error('Manifest empty');
+      return slides.filter(s => s && s.file).map((s, i) => deckFromPath(s.file, i, s));
+    }
+
+    async function fetchDirectoryDecks() {
+      const r = await fetch(slideDirectory, { cache: 'no-store' });
+      if (!r.ok) throw new Error('Directory listing unavailable');
+      const html = await r.text();
+      const doc = new DOMParser().parseFromString(html, 'text/html');
+      const dirUrl = new URL(slideDirectory, location.href);
+      const files = [...doc.querySelectorAll('a')]
+        .map(a => a.getAttribute('href')).filter(Boolean)
+        .map(h => new URL(h, dirUrl).pathname)
+        .map(p => p.split('/').pop())
+        .filter(n => /\.html$/i.test(n))
+        .filter((n, i, a) => a.indexOf(n) === i)
+        .sort((a, b) => a.localeCompare(b, 'zh-CN'))
+        .map(n => `${slideDirectory}${n}`);
+      if (!files.length) throw new Error('No HTML slides found');
+      return files.map(deckFromPath);
+    }
+
+    async function discoverDecks() {
+      try { return await fetchManifestDecks(); }
+      catch { try { return await fetchDirectoryDecks(); } catch { return embeddedDecks; } }
+    }
+
+    /* ── Filter Pills ── */
+    function buildFilterPills() {
+      const kinds = ['all', ...new Set(decks.map(d => d.kind))];
+      filterPillsContainer.innerHTML = '';
+      kinds.forEach(kind => {
+        const btn = document.createElement('button');
+        btn.className = `filter-pill rounded-full border px-4 py-2 text-[12px] font-semibold transition-all duration-300 cursor-pointer ${kind === activeFilter ? 'active bg-moss text-mist border-moss' : 'border-timber/50 text-grass/70 bg-white/40 hover:bg-moss/5'}`;
+        btn.dataset.kind = kind;
+        btn.textContent = kind === 'all' ? '全部' : kind;
+        btn.addEventListener('click', () => {
+          activeFilter = kind;
+          buildFilterPills();
+          filterCards();
+        });
+        filterPillsContainer.appendChild(btn);
+      });
+    }
+
+    /* ── Filtering ── */
+    function filterCards() {
+      const cards = grid.querySelectorAll('.book-card');
+      let visible = 0;
+      cards.forEach(card => {
+        const title = (card.dataset.title || '').toLowerCase();
+        const desc = (card.dataset.desc || '').toLowerCase();
+        const kind = card.dataset.kind || '';
+        const matchSearch = !searchQuery || title.includes(searchQuery) || desc.includes(searchQuery);
+        const matchFilter = activeFilter === 'all' || kind === activeFilter;
+        const show = matchSearch && matchFilter;
+        card.style.display = show ? '' : 'none';
+        if (show) visible++;
+      });
+      emptyState.classList.toggle('hidden', visible > 0);
+    }
+
+    /* ── Rendering ── */
+    function renderNext() {
+      const nextDecks = decks.slice(loaded, loaded + PAGE_SIZE);
+      nextDecks.forEach((deck, offset) => {
+        const absoluteIndex = loaded + offset;
+        const isFeatured = absoluteIndex === 0;
+        const tpl = isFeatured ? featuredTemplate : template;
+        const node = tpl.content.firstElementChild.cloneNode(true);
+
+        node.dataset.kind = deck.kind;
+        node.dataset.title = deck.title;
+        node.dataset.desc = deck.description;
+
+        node.style.animationDelay = `${Math.min(offset * 70, 560)}ms`;
+
+        const spineColor = accentToSpineColor(deck.accent);
+        const coverGradient = accentToCoverGradient(deck.accent);
+
+        node.querySelector('.book-spine').style.background = spineColor;
+        node.querySelector('.book-cover-bg').style.background = coverGradient;
+        node.querySelector('.deck-index').textContent = isFeatured ? `No. 01` : `No. ${String(absoluteIndex + 1).padStart(2, '0')}`;
+        node.querySelector('.deck-kind').textContent = deck.kind;
+        node.querySelector('.deck-title').textContent = deck.title;
+        node.querySelector('.deck-description').textContent = deck.description;
+
+        const playBtn = node.querySelector('.deck-play');
+        const link = node.querySelector('.deck-link');
+        link.href = deck.file;
+        playBtn.addEventListener('click', (e) => { e.stopPropagation(); openViewer(deck); });
+        link.addEventListener('click', (e) => e.stopPropagation());
+
+        // Click entire card to open viewer
+        const inner = node.querySelector('.book-inner');
+        inner.addEventListener('click', () => openViewer(deck));
+
+        grid.appendChild(node);
+      });
+      loaded += nextDecks.length;
+      deckCount.textContent = String(decks.length);
+      loadMore.classList.toggle('hidden', loaded >= decks.length);
+      init3DTilt();
+    }
+
+    /* ── 3D Tilt Effect ── */
+    function init3DTilt() {
+      const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      if (prefersReduced) return;
+
+      grid.querySelectorAll('.book-card:not([data-tilt])').forEach(card => {
+        card.dataset.tilt = '1';
+        const inner = card.querySelector('.book-inner');
+        const shine = card.querySelector('.book-shine');
+        let rafId = null;
+
+        card.addEventListener('mousemove', (e) => {
+          if (rafId) return;
+          rafId = requestAnimationFrame(() => {
+            const rect = card.getBoundingClientRect();
+            const x = (e.clientX - rect.left) / rect.width;
+            const y = (e.clientY - rect.top) / rect.height;
+            const rotateX = (0.5 - y) * 12;
+            const rotateY = (x - 0.5) * 12;
+            inner.style.transform = `rotateX(${rotateX}deg) rotateY(${rotateY}deg) scale(1.015)`;
+            inner.classList.add('is-tilting');
+            inner.style.boxShadow = `${-rotateY * 1.5}px ${rotateX * 1.5}px 24px -4px rgba(44,44,36,.12)`;
+            if (shine) {
+              shine.style.background = `linear-gradient(${105 + (x - 0.5) * 50}deg, transparent 35%, rgba(255,255,255,.14) 42%, rgba(255,255,255,.04) 50%, transparent 60%)`;
+            }
+            rafId = null;
+          });
+        });
+
+        card.addEventListener('mouseleave', () => {
+          if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
+          inner.style.transform = '';
+          inner.style.boxShadow = '';
+          inner.classList.remove('is-tilting');
+        });
+      });
+    }
+
+    /* ── Viewer ── */
+    function openViewer(deck) {
+      viewerTitle.textContent = deck.title;
+      viewerFrame.src = deck.file;
+      viewerOpenNew.href = deck.file;
+      viewer.classList.remove('hidden');
+      viewer.setAttribute('aria-hidden', 'false');
+      document.body.classList.add('viewer-open');
+      requestAnimationFrame(() => viewerShell.classList.add('is-visible'));
+      viewerClose.focus({ preventScroll: true });
+    }
+
+    function closeViewer() {
+      viewerShell.classList.remove('is-visible');
+      setTimeout(() => {
+        viewer.classList.add('hidden');
+        viewer.setAttribute('aria-hidden', 'true');
+        viewerFrame.src = 'about:blank';
+        document.body.classList.remove('viewer-open');
+      }, 280);
+    }
+
+    async function enterFullscreen() {
+      const target = viewerFrame;
+      const request = target.requestFullscreen || target.webkitRequestFullscreen || target.msRequestFullscreen;
+      if (request) {
+        await request.call(target);
+      } else {
+        window.open(viewerFrame.src, '_blank', 'noopener');
+      }
+    }
+
+    /* ── Event Listeners ── */
+    openFirst.addEventListener('click', () => decks[0] && openViewer(decks[0]));
+    viewerClose.addEventListener('click', closeViewer);
+    viewerFullscreen.addEventListener('click', enterFullscreen);
+    viewer.addEventListener('click', (e) => { if (e.target === viewer) closeViewer(); });
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !viewer.classList.contains('hidden')) closeViewer(); });
+
+    loadMore.addEventListener('click', renderNext);
+
+    // Search
+    searchInput.addEventListener('input', (e) => {
+      searchQuery = e.target.value.toLowerCase().trim();
+      filterCards();
+    });
+
+    // IntersectionObserver for infinite scroll
+    if ('IntersectionObserver' in window) {
+      const observer = new IntersectionObserver((entries) => {
+        if (entries.some(entry => entry.isIntersecting) && loaded < decks.length) renderNext();
+      }, { rootMargin: '480px 0px' });
+      observer.observe(sentinel);
+    }
+
+    // Parallax scroll for blobs
+    if ('IntersectionObserver' in window && window.matchMedia('(prefers-reduced-motion: no-preference)').matches) {
+      let ticking = false;
+      const blobs = document.querySelectorAll('.parallax-blob');
+      window.addEventListener('scroll', () => {
+        if (!ticking) {
+          ticking = true;
+          requestAnimationFrame(() => {
+            const scrollY = window.scrollY;
+            blobs.forEach(blob => {
+              const speed = parseFloat(blob.dataset.speed) || 0.03;
+              blob.style.transform = `translateY(${scrollY * speed}px)`;
+            });
+            ticking = false;
+          });
+        }
+      }, { passive: true });
+    }
+
+    /* ── Init ── */
+    async function initGallery() {
+      decks = await discoverDecks();
+      buildFilterPills();
+      renderNext();
+      // Activate leaf sway after hero entrance animation completes
+      setTimeout(() => {
+        document.querySelector('.hero-headline')?.classList.add('sway-active');
+        document.querySelector('.hero-subtext-sway')?.classList.add('sway-active');
+        document.querySelector('.hero-badge-sway')?.classList.add('sway-active');
+      }, 2800);
+    }
+
+    initGallery();
+  </script>
+</body>
+</html>

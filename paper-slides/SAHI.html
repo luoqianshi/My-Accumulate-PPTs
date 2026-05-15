@@ -1,0 +1,777 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="icon" href="../assets/favicon.png" type="image/png" />
+<title>SAHI - 切片辅助超推理与微调小目标检测</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+SC:wght@400;500;700;800&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Inter', 'Noto Sans SC', -apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+    background: #f0f2f5;
+    overflow: hidden;
+    height: 100vh;
+    width: 100vw;
+  }
+
+  /* Progress Bar */
+  .progress-bar {
+    position: fixed; top: 0; left: 0; height: 4px;
+    background: linear-gradient(90deg, #3966A2, #6191D3);
+    transition: width 0.4s ease; z-index: 100;
+  }
+
+  /* Slides Container */
+  .slides-container {
+    width: 100vw; height: 100vh;
+    position: relative;
+  }
+
+  .slide {
+    position: absolute; top: 0; left: 0;
+    width: 100%; height: 100%;
+    padding: 5vh 7vw;
+    display: flex; flex-direction: column;
+    justify-content: center;
+    opacity: 0; visibility: hidden;
+    transform: translateY(30px);
+    transition: opacity 0.5s ease, transform 0.5s ease, visibility 0.5s ease;
+    background: #ffffff;
+  }
+
+  .slide.active {
+    opacity: 1 !important;
+    visibility: visible !important;
+    transform: translateY(0) !important;
+  }
+
+  .slide.exit-up {
+    opacity: 0 !important;
+    visibility: hidden !important;
+    transform: translateY(-30px) !important;
+  }
+
+  /* Typography */
+  h1 {
+    font-size: clamp(2rem, 4vw, 3.5rem);
+    font-weight: 800; color: #3966A2;
+    line-height: 1.2; margin-bottom: 1rem;
+  }
+
+  h2 {
+    font-size: clamp(1.5rem, 3vw, 2.5rem);
+    font-weight: 700; color: #3966A2;
+    line-height: 1.3; margin-bottom: 0.8rem;
+  }
+
+  h3 {
+    font-size: clamp(1.1rem, 2vw, 1.5rem);
+    font-weight: 600; color: #132843;
+    margin-bottom: 0.5rem;
+  }
+
+  p, li {
+    font-size: clamp(0.9rem, 1.5vw, 1.15rem);
+    color: #333; line-height: 1.7;
+  }
+
+  .subtitle {
+    font-size: clamp(1rem, 2vw, 1.5rem);
+    color: #6191D3; font-weight: 500;
+    margin-bottom: 2rem;
+  }
+
+  .accent { color: #132843; font-weight: 700; }
+
+  /* Cover */
+  .cover-center { text-align: center; align-items: center; }
+
+  .badge {
+    display: inline-block;
+    padding: 0.3rem 1rem;
+    background: #3966A2; color: #fff;
+    border-radius: 20px; font-size: 0.85rem;
+    font-weight: 600; margin: 0.3rem;
+  }
+
+  .cover-tag {
+    margin-top: 2rem;
+    display: flex; gap: 0.5rem;
+    justify-content: center; flex-wrap: wrap;
+  }
+
+  .cover-meta {
+    color: #888; font-size: 0.9rem;
+    margin-top: 1.5rem;
+  }
+
+  /* Cards */
+  .card-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 1.2rem; margin-top: 1rem;
+  }
+
+  .card {
+    background: #f8f9fb;
+    border-radius: 12px;
+    padding: 1.2rem 1.4rem;
+    border-left: 4px solid #3966A2;
+    transition: transform 0.2s;
+  }
+
+  .card:hover { transform: translateY(-2px); }
+
+  .card h3 { margin-bottom: 0.4rem; }
+  .card p { font-size: 0.9rem; color: #555; }
+
+  /* Highlight Bar */
+  .highlight-bar {
+    background: linear-gradient(135deg, #3966A2, #6191D3);
+    color: #fff; padding: 1rem 1.5rem;
+    border-radius: 10px; margin: 1rem 0;
+    font-weight: 600; font-size: 1.05rem;
+  }
+
+  /* Bullet List */
+  .bullet-list {
+    list-style: none; padding-left: 0;
+    margin-top: 0.8rem;
+  }
+
+  .bullet-list li {
+    position: relative;
+    padding-left: 1.5rem;
+    margin-bottom: 0.6rem;
+  }
+
+  .bullet-list li::before {
+    content: '';
+    position: absolute; left: 0; top: 0.55em;
+    width: 8px; height: 8px;
+    background: #3966A2;
+    border-radius: 50%;
+  }
+
+  /* Steps */
+  .steps {
+    display: flex; gap: 1rem;
+    margin-top: 1.2rem; flex-wrap: wrap;
+  }
+
+  .step {
+    flex: 1; min-width: 200px;
+    background: #f8f9fb;
+    border-radius: 12px;
+    padding: 1.2rem;
+    text-align: center;
+    position: relative;
+  }
+
+  .step-num {
+    display: inline-flex;
+    align-items: center; justify-content: center;
+    width: 36px; height: 36px;
+    background: #3966A2; color: #fff;
+    border-radius: 50%; font-weight: 700;
+    font-size: 1rem; margin-bottom: 0.5rem;
+  }
+
+  /* Table */
+  .data-table {
+    width: 100%; border-collapse: collapse;
+    margin-top: 1rem; font-size: 0.85rem;
+  }
+
+  .data-table th {
+    background: #3966A2; color: #fff;
+    padding: 0.6rem 0.8rem; text-align: center;
+    font-weight: 600;
+  }
+
+  .data-table td {
+    padding: 0.5rem 0.8rem; text-align: center;
+    border-bottom: 1px solid #e8ecf1;
+  }
+
+  .data-table tr:nth-child(even) { background: #f8f9fb; }
+
+  .data-table .best { color: #e53e3e; font-weight: 700; }
+
+  /* Quote */
+  .quote-block {
+    border-left: 4px solid #6191D3;
+    padding: 1rem 1.5rem;
+    background: #f8f9fb;
+    border-radius: 0 10px 10px 0;
+    margin: 1rem 0;
+    font-style: italic;
+    color: #132843;
+  }
+
+  /* Glow */
+  .glow {
+    position: absolute; border-radius: 50%;
+    filter: blur(80px); opacity: 0.15;
+    pointer-events: none; z-index: 0;
+  }
+
+  .glow-blue {
+    width: 300px; height: 300px;
+    background: #3966A2;
+  }
+
+  .glow-purple {
+    width: 250px; height: 250px;
+    background: #7c3aed;
+  }
+
+  /* IPO Circle */
+  .ipo-flow {
+    display: flex; align-items: center;
+    justify-content: center; gap: 1rem;
+    margin-top: 1.5rem; flex-wrap: wrap;
+  }
+
+  .ipo-circle {
+    width: 120px; height: 120px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #3966A2, #6191D3);
+    display: flex; align-items: center;
+    justify-content: center;
+    color: #fff; font-weight: 700;
+    font-size: 0.95rem; text-align: center;
+    line-height: 1.3;
+  }
+
+  .ipo-arrow {
+    font-size: 2rem; color: #6191D3; font-weight: 700;
+  }
+
+  /* Two Column */
+  .two-col {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 2rem; margin-top: 1rem;
+  }
+
+  /* Controls */
+  .controls {
+    position: fixed; bottom: 2rem;
+    left: 50%; transform: translateX(-50%);
+    display: flex; align-items: center; gap: 1.5rem;
+    z-index: 100;
+  }
+
+  .nav-btn {
+    width: 44px; height: 44px;
+    border-radius: 50%; border: 2px solid #3966A2;
+    background: #fff; color: #3966A2;
+    font-size: 1.2rem; cursor: pointer;
+    display: flex; align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+  }
+
+  .nav-btn:hover {
+    background: #3966A2; color: #fff;
+  }
+
+  .page-info {
+    font-size: 0.9rem; color: #666;
+    font-weight: 500;
+  }
+
+  /* Dots */
+  .dots {
+    position: fixed; right: 1.5rem;
+    top: 50%; transform: translateY(-50%);
+    display: flex; flex-direction: column;
+    gap: 8px; z-index: 100;
+  }
+
+  .dot {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    background: #d0d5dd;
+    cursor: pointer;
+    transition: all 0.3s;
+  }
+
+  .dot.active {
+    background: #3966A2;
+    transform: scale(1.3);
+  }
+
+  /* Animations */
+  .anim {
+    opacity: 0; transform: translateY(20px);
+    transition: opacity 0.5s ease, transform 0.5s ease;
+  }
+
+  .slide.active .anim {
+    opacity: 1; transform: translateY(0);
+  }
+
+  .slide.active .anim:nth-child(1) { transition-delay: 0.1s; }
+  .slide.active .anim:nth-child(2) { transition-delay: 0.2s; }
+  .slide.active .anim:nth-child(3) { transition-delay: 0.3s; }
+  .slide.active .anim:nth-child(4) { transition-delay: 0.4s; }
+  .slide.active .anim:nth-child(5) { transition-delay: 0.5s; }
+
+  /* Section divider */
+  .section-num {
+    font-size: 0.85rem; color: #6191D3;
+    font-weight: 600; text-transform: uppercase;
+    letter-spacing: 2px; margin-bottom: 0.3rem;
+  }
+
+  .vs-row {
+    display: grid; grid-template-columns: 1fr auto 1fr;
+    gap: 1rem; align-items: center;
+    margin-top: 1rem;
+  }
+
+  .vs-box {
+    background: #f8f9fb; border-radius: 12px;
+    padding: 1.2rem; text-align: center;
+  }
+
+  .vs-label {
+    font-size: 1.5rem; font-weight: 800;
+    color: #3966A2;
+  }
+
+  /* Key metric */
+  .metric-row {
+    display: flex; gap: 1.5rem;
+    margin-top: 1.5rem; flex-wrap: wrap;
+  }
+
+  .metric {
+    text-align: center;
+    background: linear-gradient(135deg, #3966A2, #6191D3);
+    color: #fff; padding: 1.2rem 1.5rem;
+    border-radius: 12px; min-width: 140px;
+  }
+
+  .metric-val {
+    font-size: 2rem; font-weight: 800;
+  }
+
+  .metric-label {
+    font-size: 0.8rem; opacity: 0.9;
+    margin-top: 0.3rem;
+  }
+</style>
+</head>
+<body>
+
+<div class="progress-bar" id="progressBar"></div>
+
+<div class="slides-container" id="slidesContainer">
+
+  <!-- Slide 1: Cover -->
+  <div class="slide active cover-center" data-index="0">
+    <div class="glow glow-blue" style="top:10%;left:10%"></div>
+    <div class="glow glow-purple" style="bottom:15%;right:15%"></div>
+    <div class="anim section-num">IEEE ICIP 2022</div>
+    <h1 class="anim">切片辅助超推理与微调<br>用于小目标检测</h1>
+    <p class="subtitle anim">Slicing Aided Hyper Inference and Fine-Tuning<br>for Small Object Detection (SAHI)</p>
+    <div class="cover-tag anim">
+      <span class="badge">小目标检测</span>
+      <span class="badge">切片推理</span>
+      <span class="badge">开源框架</span>
+    </div>
+    <p class="cover-meta anim">Fatih Cagatay Akyon, Sinan Onur Altinuc, Alptekin Temizel<br>Middle East Technical University, Ankara, Turkey</p>
+  </div>
+
+  <!-- Slide 2: Problem -->
+  <div class="slide" data-index="1">
+    <div class="glow glow-blue" style="top:5%;right:10%"></div>
+    <div class="anim section-num">01 / 问题背景</div>
+    <h2 class="anim">小目标检测的核心挑战</h2>
+    <p class="anim" style="margin-top:0.5rem">在高分辨率监控和无人机图像中，小目标检测面临以下关键问题：</p>
+    <div class="card-grid anim">
+      <div class="card">
+        <h3>像素覆盖不足</h3>
+        <p>小目标仅占图像极少的像素，缺乏足够的特征细节用于检测</p>
+      </div>
+      <div class="card">
+        <h3>预训练数据偏差</h3>
+        <p>主流检测器在COCO等低分辨率数据集上预训练，目标平均占图像高度60%</p>
+      </div>
+      <div class="card">
+        <h3>内存瓶颈</h3>
+        <p>高分辨率图像需要更大的特征图，导致计算和内存需求急剧增加</p>
+      </div>
+      <div class="card">
+        <h3>密集遮挡</h3>
+        <p>无人机场景中目标密集分布、部分遮挡，光照和视角变化大</p>
+      </div>
+    </div>
+    <div class="highlight-bar anim" style="margin-top:1.2rem">
+      DORI标准：检测需要目标占图像高度 ≥10%，识别需要 ≥20%（全高清约108像素）
+    </div>
+  </div>
+
+  <!-- Slide 3: Related Work -->
+  <div class="slide" data-index="2">
+    <div class="glow glow-purple" style="bottom:10%;left:5%"></div>
+    <div class="anim section-num">02 / 相关工作</div>
+    <h2 class="anim">现有方法的局限性</h2>
+    <div class="two-col anim">
+      <div>
+        <h3>通用目标检测器</h3>
+        <ul class="bullet-list">
+          <li><span class="accent">单阶段</span>：SSD、YOLO、RetinaNet — 速度快</li>
+          <li><span class="accent">两阶段</span>：Faster R-CNN、Cascade R-CNN — 精度高</li>
+          <li><span class="accent">无锚框</span>：FCOS、VFNet、TOOD — 去除锚框设计</li>
+        </ul>
+        <p style="margin-top:0.8rem;color:#888;font-size:0.9rem">这些检测器在标准数据集上表现优异，但在小目标检测上性能显著下降</p>
+      </div>
+      <div>
+        <h3>小目标专用方法</h3>
+        <ul class="bullet-list">
+          <li><span class="accent">PSO/BFO优化</span>：需从头训练，难以迁移</li>
+          <li><span class="accent">过采样+复制</span>：需要分割标注，不通用</li>
+          <li><span class="accent">裁剪放大</span>：区域选择带来计算负担</li>
+          <li><span class="accent">注意力机制</span>：提出新架构，需重新预训练</li>
+          <li><span class="accent">GAN超分辨率</span>：训练成本高，泛化性差</li>
+        </ul>
+      </div>
+    </div>
+    <div class="quote-block anim" style="margin-top:1rem">
+      核心问题：现有方法要么需要修改模型架构，要么需要从头训练，缺乏通用性。
+    </div>
+  </div>
+
+  <!-- Slide 4: SAHI Overview -->
+  <div class="slide" data-index="3">
+    <div class="glow glow-blue" style="top:15%;right:5%"></div>
+    <div class="glow glow-purple" style="bottom:10%;left:10%"></div>
+    <div class="anim section-num">03 / 核心方法</div>
+    <h2 class="anim">SAHI 框架总览</h2>
+    <p class="anim" style="margin-top:0.5rem">一个<span class="accent">通用、即插即用</span>的切片辅助推理与微调框架，无需修改检测器架构</p>
+    <div class="ipo-flow anim">
+      <div class="ipo-circle">切片辅助<br>微调 (SF)</div>
+      <div class="ipo-arrow">→</div>
+      <div class="ipo-circle">切片辅助<br>超推理 (SAHI)</div>
+      <div class="ipo-arrow">→</div>
+      <div class="ipo-circle">NMS<br>融合输出</div>
+    </div>
+    <div class="highlight-bar anim" style="margin-top:1.5rem">
+      关键优势：适用于任何现有目标检测器（FCOS、VFNet、TOOD、YOLOv5等），无需重新预训练
+    </div>
+    <div class="card-grid anim" style="margin-top:1rem">
+      <div class="card">
+        <h3>切片辅助微调 (SF)</h3>
+        <p>将训练图像切成重叠patch，放大后微调，使模型适应小目标</p>
+      </div>
+      <div class="card">
+        <h3>切片辅助推理 (SAHI)</h3>
+        <p>推理时将图像切片，独立检测后NMS合并，线性增加计算时间但内存固定</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Slide 5: Slicing Fine-tuning -->
+  <div class="slide" data-index="4">
+    <div class="glow glow-blue" style="bottom:20%;right:10%"></div>
+    <div class="anim section-num">03 / 核心方法</div>
+    <h2 class="anim">切片辅助微调 (SF) 详解</h2>
+    <div class="steps anim">
+      <div class="step">
+        <div class="step-num">1</div>
+        <h3>图像切片</h3>
+        <p>将每张训练图像切成 M×N 个重叠patch，尺寸在 [M_min, M_max] × [N_min, N_max] 范围内随机选取</p>
+      </div>
+      <div class="step">
+        <div class="step-num">2</div>
+        <h3>Resize放大</h3>
+        <p>将patch保持宽高比resize至宽度800~1333像素，使小目标相对尺寸增大</p>
+      </div>
+      <div class="step">
+        <div class="step-num">3</div>
+        <h3>混合训练</h3>
+        <p>切片图像 + 原始图像一起用于微调，兼顾小目标和大型目标检测</p>
+      </div>
+      <div class="step">
+        <div class="step-num">4</div>
+        <h3>微调模型</h3>
+        <p>基于预训练权重进行微调，利用小数据集即可完成，无需从头训练</p>
+      </div>
+    </div>
+    <div class="quote-block anim" style="margin-top:1rem">
+      注意：patch尺寸不能太小，否则大目标可能无法完整包含在切片中，导致大目标检测性能下降。
+    </div>
+  </div>
+
+  <!-- Slide 6: Slicing Inference -->
+  <div class="slide" data-index="5">
+    <div class="glow glow-purple" style="top:10%;left:5%"></div>
+    <div class="anim section-num">03 / 核心方法</div>
+    <h2 class="anim">切片辅助超推理 (SAHI) 详解</h2>
+    <div class="steps anim">
+      <div class="step">
+        <div class="step-num">1</div>
+        <h3>图像切片</h3>
+        <p>将查询图像切成 M×N 个重叠patch（可设置25%重叠率）</p>
+      </div>
+      <div class="step">
+        <div class="step-num">2</div>
+        <h3>独立检测</h3>
+        <p>对每个patch独立执行目标检测前向推理</p>
+      </div>
+      <div class="step">
+        <div class="step-num">3</div>
+        <h3>全图推理(可选)</h3>
+        <p>可选对原始全图做一次完整推理(FI)，补充大目标检测</p>
+      </div>
+      <div class="step">
+        <div class="step-num">4</div>
+        <h3>NMS融合</h3>
+        <p>将所有patch的预测结果转换回原图坐标，用NMS合并（IoU阈值 T_m）</p>
+      </div>
+    </div>
+    <div class="highlight-bar anim" style="margin-top:1rem">
+      计算复杂度：线性增长（与patch数量成正比），但内存需求保持固定不变
+    </div>
+  </div>
+
+  <!-- Slide 7: VisDrone Results -->
+  <div class="slide" data-index="6">
+    <div class="glow glow-blue" style="top:5%;left:15%"></div>
+    <div class="anim section-num">04 / 实验结果</div>
+    <h2 class="anim">VisDrone 数据集实验结果</h2>
+    <p class="anim">VisDrone2019：无人机平台采集，8599张图像，10类目标，以小目标为主</p>
+    <div class="anim" style="margin-top:0.8rem; overflow-x:auto;">
+      <table class="data-table">
+        <tr>
+          <th>方法配置</th><th>AP<sub>50</sub></th><th>AP<sub>s</sub><sup>50</sup></th><th>AP<sub>m</sub><sup>50</sup></th><th>AP<sub>l</sub><sup>50</sup></th>
+        </tr>
+        <tr><td>FCOS + FI (基线)</td><td>25.8</td><td>14.2</td><td>39.6</td><td>45.1</td></tr>
+        <tr><td>FCOS + SAHI + FI + PO</td><td>31.0</td><td>19.8</td><td>44.6</td><td>49.0</td></tr>
+        <tr class="best-row"><td><strong>FCOS + SF + SAHI + FI + PO</strong></td><td class="best">38.5</td><td class="best">25.9</td><td class="best">55.4</td><td class="best">59.8</td></tr>
+        <tr><td>VFNet + FI (基线)</td><td>28.8</td><td>16.8</td><td>44.0</td><td>47.5</td></tr>
+        <tr class="best-row"><td><strong>VFNet + SF + SAHI + FI + PO</strong></td><td class="best">42.2</td><td class="best">29.6</td><td class="best">59.2</td><td class="best">63.3</td></tr>
+        <tr><td>TOOD + FI (基线)</td><td>29.4</td><td>18.1</td><td>44.1</td><td>50.0</td></tr>
+        <tr class="best-row"><td><strong>TOOD + SF + SAHI + FI + PO</strong></td><td class="best">43.5</td><td class="best">31.7</td><td class="best">59.8</td><td class="best">65.4</td></tr>
+      </table>
+    </div>
+    <p class="anim" style="margin-top:0.5rem;font-size:0.85rem;color:#888">SF=切片微调, SAHI=切片推理, FI=全图推理, PO=重叠patch(25%)</p>
+  </div>
+
+  <!-- Slide 8: xView Results -->
+  <div class="slide" data-index="7">
+    <div class="glow glow-purple" style="bottom:15%;right:10%"></div>
+    <div class="anim section-num">04 / 实验结果</div>
+    <h2 class="anim">xView 数据集实验结果</h2>
+    <p class="anim">xView：卫星图像目标检测数据集，60类，超过100万标注实例，目标极小</p>
+    <div class="anim" style="margin-top:0.8rem; overflow-x:auto;">
+      <table class="data-table">
+        <tr>
+          <th>方法配置</th><th>AP<sub>50</sub></th><th>AP<sub>s</sub><sup>50</sup></th><th>AP<sub>m</sub><sup>50</sup></th><th>AP<sub>l</sub><sup>50</sup></th>
+        </tr>
+        <tr><td>FCOS + FI (基线)</td><td>2.20</td><td>0.10</td><td>1.80</td><td>7.30</td></tr>
+        <tr class="best-row"><td><strong>FCOS + SF + SAHI + FI + PO</strong></td><td class="best">17.0</td><td class="best">12.2</td><td class="best">20.2</td><td class="best">15.8</td></tr>
+        <tr><td>VFNet + FI (基线)</td><td>2.10</td><td>0.50</td><td>1.80</td><td>6.80</td></tr>
+        <tr class="best-row"><td><strong>VFNet + SF + SAHI + FI + PO</strong></td><td class="best">17.5</td><td class="best">13.7</td><td class="best">19.6</td><td class="best">17.6</td></tr>
+        <tr><td>TOOD + FI (基线)</td><td>2.10</td><td>0.10</td><td>2.00</td><td>5.20</td></tr>
+        <tr class="best-row"><td><strong>TOOD + SF + SAHI + FI + PO</strong></td><td class="best">20.4</td><td class="best">14.9</td><td class="best">23.5</td><td class="best">17.6</td></tr>
+      </table>
+    </div>
+    <div class="highlight-bar anim" style="margin-top:0.8rem">
+      xView基线AP仅约2%，SAHI+SF后提升至17~20%，提升幅度高达 <strong>8~9倍</strong>
+    </div>
+  </div>
+
+  <!-- Slide 9: Key Metrics -->
+  <div class="slide" data-index="8">
+    <div class="glow glow-blue" style="top:10%;right:15%"></div>
+    <div class="glow glow-purple" style="bottom:10%;left:5%"></div>
+    <div class="anim section-num">04 / 关键指标</div>
+    <h2 class="anim">性能提升总结</h2>
+    <div class="metric-row anim">
+      <div class="metric">
+        <div class="metric-val">+6.8%</div>
+        <div class="metric-label">仅SAHI推理<br>FCOS AP提升</div>
+      </div>
+      <div class="metric">
+        <div class="metric-val">+14.5%</div>
+        <div class="metric-label">SAHI + SF<br>TOOD AP提升</div>
+      </div>
+      <div class="metric">
+        <div class="metric-val">+2.9%</div>
+        <div class="metric-label">25%重叠patch<br>额外AP提升</div>
+      </div>
+      <div class="metric">
+        <div class="metric-val">8~9×</div>
+        <div class="metric-label">xView数据集<br>AP提升倍数</div>
+      </div>
+    </div>
+    <div class="two-col anim" style="margin-top:1.5rem">
+      <div class="card">
+        <h3>各组件贡献（VisDrone）</h3>
+        <ul class="bullet-list">
+          <li>SAHI推理：+5.1%~6.8% AP</li>
+          <li>SF微调：额外+5.9%~8.3% AP</li>
+          <li>25%重叠patch：额外+0.6%~2.9% AP</li>
+          <li>全图推理(FI)：提升大目标AP</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3>误差分析发现</h3>
+        <ul class="bullet-list">
+          <li>假阳性(FP)和假阴性(FN)有较大改进空间</li>
+          <li>类别混淆是xView的主要误差来源</li>
+          <li>定位误差和超类别FP有少量改进空间</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- Slide 10: Advantages -->
+  <div class="slide" data-index="9">
+    <div class="glow glow-blue" style="top:20%;left:10%"></div>
+    <div class="anim section-num">05 / 方法优势</div>
+    <h2 class="anim">SAHI 的核心优势</h2>
+    <div class="card-grid anim">
+      <div class="card">
+        <h3>🔌 即插即用</h3>
+        <p>无需修改检测器架构，可直接集成到任何现有检测器上</p>
+      </div>
+      <div class="card">
+        <h3>🔄 通用性强</h3>
+        <p>已集成Detectron2、MMDetection、YOLOv5等主流框架</p>
+      </div>
+      <div class="card">
+        <h3>💾 内存固定</h3>
+        <p>计算时间线性增长，但内存需求保持不变，适合高分辨率图像</p>
+      </div>
+      <div class="card">
+        <h3>⚙️ 灵活可调</h3>
+        <p>可通过调整patch尺寸和重叠率在计算和精度间灵活权衡</p>
+      </div>
+      <div class="card">
+        <h3>📈 无需预训练</h3>
+        <p>推理阶段直接使用，零额外训练成本即可获得显著提升</p>
+      </div>
+      <div class="card">
+        <h3>🌐 完全开源</h3>
+        <p>代码公开，提供配置文件、转换脚本和评估脚本</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Slide 11: Conclusion -->
+  <div class="slide" data-index="10">
+    <div class="glow glow-purple" style="top:10%;right:10%"></div>
+    <div class="glow glow-blue" style="bottom:15%;left:10%"></div>
+    <div class="anim section-num">06 / 总结与展望</div>
+    <h2 class="anim">总结</h2>
+    <ul class="bullet-list anim" style="max-width:800px">
+      <li>提出<span class="accent">SAHI框架</span>：通用的切片辅助推理与微调流水线</li>
+      <li><span class="accent">切片辅助推理</span>无需微调即可提升AP达6.8%</li>
+      <li><span class="accent">切片辅助微调</span>可进一步提升AP达14.5%</li>
+      <li>在VisDrone和xView数据集上均验证了有效性</li>
+      <li>计算时间线性增长，内存需求固定不变</li>
+    </ul>
+    <h2 class="anim" style="margin-top:1.5rem">未来工作</h2>
+    <ul class="bullet-list anim" style="max-width:800px">
+      <li>将切片方法应用于<span class="accent">实例分割</span>模型</li>
+      <li>评估不同的<span class="accent">后处理技术</span>以进一步提升性能</li>
+    </ul>
+    <div class="highlight-bar anim" style="margin-top:1.5rem">
+      GitHub 开源地址：github.com/obss/sahi
+    </div>
+  </div>
+
+  <!-- Slide 12: Thank You -->
+  <div class="slide cover-center" data-index="11">
+    <div class="glow glow-blue" style="top:20%;left:20%"></div>
+    <div class="glow glow-purple" style="bottom:20%;right:20%"></div>
+    <div class="anim section-num">感谢聆听</div>
+    <h1 class="anim">Thank You</h1>
+    <p class="subtitle anim">SAHI: Slicing Aided Hyper Inference and Fine-Tuning<br>for Small Object Detection</p>
+    <div class="cover-tag anim">
+      <span class="badge">IEEE ICIP 2022</span>
+      <span class="badge">开源框架</span>
+      <span class="badge">小目标检测</span>
+    </div>
+    <p class="cover-meta anim">github.com/obss/sahi</p>
+  </div>
+
+</div>
+
+<!-- Dots Navigation -->
+<div class="dots" id="dots"></div>
+
+<!-- Controls -->
+<div class="controls">
+  <button class="nav-btn" id="prevBtn" onclick="navigate(-1)">◀</button>
+  <span class="page-info" id="pageInfo">1 / 12</span>
+  <button class="nav-btn" id="nextBtn" onclick="navigate(1)">▶</button>
+</div>
+
+<script>
+  const slides = document.querySelectorAll('.slide');
+  const totalSlides = slides.length;
+  let currentSlide = 0;
+
+  // Create dots
+  const dotsContainer = document.getElementById('dots');
+  for (let i = 0; i < totalSlides; i++) {
+    const dot = document.createElement('div');
+    dot.className = 'dot' + (i === 0 ? ' active' : '');
+    dot.onclick = () => goToSlide(i);
+    dotsContainer.appendChild(dot);
+  }
+
+  function updateUI() {
+    document.getElementById('pageInfo').textContent = `${currentSlide + 1} / ${totalSlides}`;
+    document.getElementById('progressBar').style.width = `${((currentSlide + 1) / totalSlides) * 100}%`;
+
+    document.querySelectorAll('.dot').forEach((dot, i) => {
+      dot.classList.toggle('active', i === currentSlide);
+    });
+  }
+
+  function goToSlide(index) {
+    if (index < 0 || index >= totalSlides || index === currentSlide) return;
+
+    slides[currentSlide].classList.remove('active');
+    slides[currentSlide].classList.add('exit-up');
+
+    setTimeout(() => {
+      slides[currentSlide].classList.remove('exit-up');
+      currentSlide = index;
+      slides[currentSlide].classList.add('active');
+      updateUI();
+    }, 50);
+  }
+
+  function navigate(direction) {
+    goToSlide(currentSlide + direction);
+  }
+
+  // Keyboard navigation
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowRight' || e.key === 'ArrowDown' || e.key === ' ') {
+      e.preventDefault();
+      navigate(1);
+    } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+      e.preventDefault();
+      navigate(-1);
+    }
+  });
+
+  updateUI();
+</script>
+
+</body>
+</html>

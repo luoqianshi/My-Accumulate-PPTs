@@ -1,0 +1,904 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="icon" href="../assets/favicon.png" type="image/png" />
+<title>低空航拍可见光图像快速检测甘蔗幼苗群体数量</title>
+<style>
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#ffffff;--text:#000000;--title:#3966A2;--emphasis:#132843;--secondary:#6191D3;--card-bg:#f7f8fa;--card-border:#e8ecf1;--accent-light:#eef3fb;--accent-gradient:linear-gradient(135deg,#3966A2 0%,#6191D3 100%);--shadow-sm:0 1px 3px rgba(0,0,0,0.06);--shadow-md:0 4px 16px rgba(0,0,0,0.08);--shadow-lg:0 8px 32px rgba(0,0,0,0.10);--radius:12px;--radius-sm:8px;--font:'Inter','Noto Sans SC',-apple-system,'PingFang SC','Microsoft YaHei',sans-serif}
+html,body{width:100%;height:100%;overflow:hidden;font-family:var(--font);background:#000;color:var(--text);-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}
+.presentation{width:100vw;height:100vh;position:relative;overflow:hidden}
+.slide{position:absolute;top:0;left:0;width:100%;height:100%;padding:5vh 7vw;background:var(--bg);display:flex;flex-direction:column;justify-content:center;opacity:0!important;visibility:hidden!important;transform:translateY(40px) scale(0.97)!important;transition:opacity 0.6s cubic-bezier(0.16,1,0.3,1),visibility 0.6s cubic-bezier(0.16,1,0.3,1),transform 0.6s cubic-bezier(0.16,1,0.3,1);overflow-y:auto;overflow-x:hidden}
+.slide.active{opacity:1!important;visibility:visible!important;transform:translateY(0) scale(1)!important;z-index:10}
+.slide.exit-up{opacity:0!important;visibility:hidden!important;transform:translateY(-40px) scale(0.97)!important}
+h1{font-size:clamp(28px,4vw,52px);font-weight:700;color:var(--title);line-height:1.2;letter-spacing:-0.02em;margin-bottom:0.5em}
+h2{font-size:clamp(22px,3vw,38px);font-weight:700;color:var(--title);line-height:1.25;letter-spacing:-0.01em;margin-bottom:0.4em}
+h3{font-size:clamp(16px,2vw,24px);font-weight:600;color:var(--emphasis);line-height:1.3;margin-bottom:0.3em}
+h4{font-size:clamp(14px,1.5vw,20px);font-weight:600;color:var(--secondary);line-height:1.4;margin-bottom:0.25em}
+p,li{font-size:clamp(13px,1.4vw,18px);line-height:1.7;color:var(--text)}
+.text-secondary{color:var(--secondary)}.text-emphasis{color:var(--emphasis)}.text-title{color:var(--title)}
+.text-sm{font-size:clamp(11px,1.1vw,14px)}.text-xs{font-size:clamp(10px,0.9vw,12px)}
+.text-center{text-align:center}.text-right{text-align:right}
+.fw-600{font-weight:600}.fw-700{font-weight:700}
+.flex{display:flex}.flex-col{flex-direction:column}.flex-wrap{flex-wrap:wrap}
+.items-center{align-items:center}.items-start{align-items:flex-start}
+.justify-center{justify-content:center}.justify-between{justify-content:space-between}
+.gap-1{gap:8px}.gap-2{gap:16px}.gap-3{gap:24px}.gap-4{gap:32px}
+.flex-1{flex:1;min-width:0}.w-full{width:100%}
+.mt-1{margin-top:8px}.mt-2{margin-top:16px}.mt-3{margin-top:24px}.mt-4{margin-top:32px}
+.mb-1{margin-bottom:8px}.mb-2{margin-bottom:16px}.mb-3{margin-bottom:24px}
+.grid-2{display:grid;grid-template-columns:repeat(2,1fr);gap:24px}
+.grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}
+.grid-4{display:grid;grid-template-columns:repeat(4,1fr);gap:16px}
+.card{background:var(--card-bg);border:1px solid var(--card-border);border-radius:var(--radius);padding:clamp(16px,2vw,28px);transition:box-shadow 0.3s ease,transform 0.3s ease}
+.card:hover{box-shadow:var(--shadow-md);transform:translateY(-2px)}
+.card-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:20px}
+.card-accent{background:var(--accent-light);border-color:var(--secondary)}
+.card-white{background:#fff;border:1px solid var(--card-border);border-radius:var(--radius-sm);padding:clamp(14px,1.8vw,24px)}
+.badge{display:inline-flex;align-items:center;padding:4px 14px;border-radius:20px;font-size:clamp(11px,1vw,14px);font-weight:600;background:var(--accent-light);color:var(--title);border:1px solid rgba(57,102,162,0.2)}
+.badge-dark{background:var(--emphasis);color:#fff;border-color:var(--emphasis)}
+.badge-outline{background:transparent;color:var(--secondary);border:1.5px solid var(--secondary)}
+.cover-tag{display:inline-block;padding:6px 18px;background:var(--accent-gradient);color:#fff;border-radius:6px;font-size:clamp(12px,1.1vw,15px);font-weight:600;letter-spacing:0.02em}
+.highlight-bar{background:var(--accent-light);border-left:4px solid var(--title);border-radius:0 var(--radius-sm) var(--radius-sm) 0;padding:clamp(12px,1.5vw,20px) clamp(16px,2vw,24px)}
+.highlight-bar p{margin:0}
+.steps{display:flex;flex-direction:column;gap:16px}
+.step{display:flex;align-items:flex-start;gap:16px;padding:clamp(12px,1.5vw,20px);background:var(--card-bg);border-radius:var(--radius-sm);border:1px solid var(--card-border)}
+.step-number{flex-shrink:0;width:36px;height:36px;border-radius:50%;background:var(--accent-gradient);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:clamp(13px,1.2vw,16px)}
+.step-content{flex:1}.step-content h4{margin-bottom:4px}
+.bullet-list{list-style:none;padding:0}
+.bullet-list li{position:relative;padding-left:20px;margin-bottom:10px;font-size:clamp(13px,1.4vw,18px);line-height:1.7}
+.bullet-list li::before{content:'';position:absolute;left:0;top:10px;width:7px;height:7px;border-radius:50%;background:var(--secondary)}
+.num-list{list-style:none;padding:0;counter-reset:num-counter}
+.num-list li{counter-increment:num-counter;position:relative;padding-left:32px;margin-bottom:12px;font-size:clamp(13px,1.4vw,18px);line-height:1.7}
+.num-list li::before{content:counter(num-counter);position:absolute;left:0;top:2px;width:24px;height:24px;border-radius:6px;background:var(--accent-light);color:var(--title);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:clamp(11px,1vw,14px)}
+.table-wrapper{overflow-x:auto;border-radius:var(--radius);border:1px solid var(--card-border)}
+table{width:100%;border-collapse:collapse;font-size:clamp(12px,1.2vw,16px)}
+thead th{background:var(--accent-light);color:var(--title);font-weight:600;padding:clamp(10px,1.2vw,16px) clamp(12px,1.5vw,20px);text-align:left;border-bottom:2px solid var(--secondary)}
+tbody td{padding:clamp(8px,1vw,14px) clamp(12px,1.5vw,20px);border-bottom:1px solid var(--card-border)}
+tbody tr:last-child td{border-bottom:none}
+tbody tr:hover{background:var(--accent-light)}
+.text-center-table th,.text-center-table td{text-align:center}
+.glow{position:relative}.glow::before{content:'';position:absolute;border-radius:50%;filter:blur(80px);opacity:0.15;pointer-events:none;z-index:0}
+.glow-purple::before{width:300px;height:300px;background:var(--title);top:-100px;right:-50px}
+.glow-yellow::before{width:250px;height:250px;background:#f0c040;bottom:-80px;left:-40px}
+.divider{width:60px;height:3px;background:var(--accent-gradient);border-radius:2px;margin:12px 0}
+.divider-full{width:100%;height:1px;background:var(--card-border);margin:16px 0}
+.progress-bar{width:100%;height:8px;background:var(--card-bg);border-radius:4px;overflow:hidden}
+.progress-fill{height:100%;background:var(--accent-gradient);border-radius:4px;transition:width 0.8s ease}
+.stat-block{text-align:center;padding:clamp(16px,2vw,28px)}
+.stat-number{font-size:clamp(28px,3.5vw,48px);font-weight:800;color:var(--title);line-height:1.1}
+.stat-label{font-size:clamp(11px,1.1vw,15px);color:var(--secondary);margin-top:4px;font-weight:500}
+.formula{background:var(--card-bg);border:1px solid var(--card-border);border-radius:var(--radius-sm);padding:clamp(12px,1.5vw,20px);text-align:center;font-family:'Georgia','Times New Roman',serif;font-size:clamp(14px,1.5vw,20px);color:var(--emphasis);letter-spacing:0.02em}
+.flow-row{display:flex;align-items:center;justify-content:center;gap:8px;flex-wrap:wrap}
+.flow-box{padding:clamp(8px,1vw,14px) clamp(14px,1.8vw,24px);background:var(--accent-light);border:1.5px solid var(--secondary);border-radius:var(--radius-sm);font-size:clamp(12px,1.2vw,16px);font-weight:600;color:var(--title);text-align:center;white-space:nowrap}
+.flow-box-dark{background:var(--title);color:#fff;border-color:var(--title)}
+.flow-arrow{font-size:clamp(16px,2vw,24px);color:var(--secondary);font-weight:700}
+.nav-controls{position:fixed;bottom:24px;right:32px;z-index:100;display:flex;align-items:center;gap:12px}
+.nav-btn{width:44px;height:44px;border-radius:50%;border:1.5px solid var(--card-border);background:rgba(255,255,255,0.92);backdrop-filter:blur(10px);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:18px;color:var(--title);transition:all 0.25s ease;box-shadow:var(--shadow-sm)}
+.nav-btn:hover{background:var(--title);color:#fff;border-color:var(--title);transform:scale(1.08)}
+.nav-btn:active{transform:scale(0.95)}
+.page-indicator{position:fixed;bottom:28px;left:32px;z-index:100;font-size:clamp(12px,1.1vw,15px);font-weight:600;color:var(--secondary);background:rgba(255,255,255,0.92);backdrop-filter:blur(10px);padding:6px 16px;border-radius:20px;border:1px solid var(--card-border);box-shadow:var(--shadow-sm)}
+.top-progress{position:fixed;top:0;left:0;height:3px;background:var(--accent-gradient);z-index:100;transition:width 0.4s ease}
+.chapter-label{font-size:clamp(11px,1vw,14px);font-weight:600;color:var(--secondary);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px}
+.slide-cover{justify-content:center;align-items:center;text-align:center;position:relative}
+.slide-cover .cover-bg{position:absolute;top:0;left:0;width:100%;height:100%;background:linear-gradient(160deg,#f0f4fa 0%,#ffffff 40%,#eef3fb 100%);z-index:0}
+.slide-cover .cover-content{position:relative;z-index:1;max-width:800px}
+.slide-cover .cover-decoration{position:absolute;width:400px;height:400px;border-radius:50%;filter:blur(120px);opacity:0.12;z-index:0}
+.slide-cover .deco-1{background:var(--title);top:-100px;right:-80px}
+.slide-cover .deco-2{background:#6191D3;bottom:-120px;left:-60px}
+.arch-block{padding:clamp(10px,1.2vw,16px) clamp(12px,1.5vw,20px);border-radius:var(--radius-sm);text-align:center;font-size:clamp(11px,1.1vw,15px);font-weight:600;border:1.5px solid}
+.arch-input{background:#e8f5e9;border-color:#4caf50;color:#2e7d32}
+.arch-feature{background:#e3f2fd;border-color:#2196f3;color:#1565c0}
+.arch-rpn{background:#fff3e0;border-color:#ff9800;color:#e65100}
+.arch-detect{background:#fce4ec;border-color:#e91e63;color:#c2185b}
+.arch-output{background:#f3e5f5;border-color:#9c27b0;color:#7b1fa2}
+.compare-bar{display:flex;align-items:center;gap:12px;margin-bottom:10px}
+.compare-label{width:140px;flex-shrink:0;font-size:clamp(12px,1.2vw,15px);font-weight:600;color:var(--emphasis);text-align:right}
+.compare-track{flex:1;height:28px;background:var(--card-bg);border-radius:6px;overflow:hidden;position:relative}
+.compare-fill{height:100%;border-radius:6px;display:flex;align-items:center;justify-content:flex-end;padding-right:10px;font-size:clamp(11px,1vw,14px);font-weight:700;color:#fff;transition:width 1s ease}
+.fill-blue{background:var(--accent-gradient)}.fill-green{background:linear-gradient(135deg,#43a047,#66bb6a)}
+.fill-orange{background:linear-gradient(135deg,#e65100,#ff9800)}.fill-highlight{background:linear-gradient(135deg,#c62828,#ef5350)}
+.slide::-webkit-scrollbar{width:4px}.slide::-webkit-scrollbar-track{background:transparent}
+.slide::-webkit-scrollbar-thumb{background:var(--card-border);border-radius:2px}
+.toc-item{display:flex;align-items:center;gap:16px;padding:clamp(12px,1.5vw,20px);border-radius:var(--radius-sm);border:1px solid var(--card-border);background:var(--card-bg);transition:all 0.3s ease;cursor:default}
+.toc-item:hover{border-color:var(--secondary);background:var(--accent-light);transform:translateX(4px)}
+.toc-num{width:40px;height:40px;border-radius:10px;background:var(--accent-gradient);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:clamp(14px,1.3vw,18px);flex-shrink:0}
+.toc-text h4{margin-bottom:2px;color:var(--emphasis)}.toc-text p{font-size:clamp(11px,1vw,14px);color:var(--secondary)}
+code{background:var(--card-bg);border:1px solid var(--card-border);border-radius:4px;padding:2px 8px;font-size:0.9em;font-family:'SF Mono','Fira Code','Consolas',monospace;color:var(--title)}
+.kv-row{display:flex;gap:8px;margin-bottom:6px}
+.kv-key{font-weight:600;color:var(--title);min-width:120px;flex-shrink:0}.kv-val{color:var(--text)}
+.result-highlight{background:linear-gradient(135deg,#3966A2,#6191D3);color:#fff;border-radius:var(--radius);padding:clamp(20px,2.5vw,36px);text-align:center}
+.result-highlight .big-number{font-size:clamp(36px,5vw,72px);font-weight:800;line-height:1}
+.result-highlight .big-label{font-size:clamp(14px,1.5vw,20px);opacity:0.9;margin-top:8px}
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:clamp(20px,3vw,40px);align-items:start}
+.three-col{display:grid;grid-template-columns:1fr 1fr 1fr;gap:clamp(16px,2vw,28px);align-items:start}
+.section-header{margin-bottom:clamp(16px,2.5vw,32px)}.section-header .chapter-label{margin-bottom:6px}
+.tag-group{display:flex;flex-wrap:wrap;gap:8px}
+.tag{display:inline-flex;align-items:center;padding:4px 12px;border-radius:6px;font-size:clamp(11px,1vw,14px);font-weight:500;background:var(--card-bg);color:var(--emphasis);border:1px solid var(--card-border)}
+.icon-box{width:48px;height:48px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0}
+.icon-blue{background:var(--accent-light);color:var(--title)}.icon-green{background:#e8f5e9;color:#2e7d32}
+.icon-orange{background:#fff3e0;color:#e65100}.icon-red{background:#fce4ec;color:#c2185b}
+.timeline{position:relative;padding-left:28px}
+.timeline::before{content:'';position:absolute;left:8px;top:0;bottom:0;width:2px;background:var(--card-border)}
+.timeline-item{position:relative;margin-bottom:20px}
+.timeline-item::before{content:'';position:absolute;left:-24px;top:8px;width:12px;height:12px;border-radius:50%;background:var(--secondary);border:2px solid #fff;box-shadow:0 0 0 2px var(--secondary)}
+.timeline-item h4{margin-bottom:4px}
+@media(max-width:768px){.slide{padding:3vh 5vw}.two-col,.grid-2{grid-template-columns:1fr}.three-col,.grid-3{grid-template-columns:1fr}.grid-4{grid-template-columns:repeat(2,1fr)}.flow-row{flex-direction:column}.flow-arrow{transform:rotate(90deg)}.compare-bar{flex-direction:column;align-items:flex-start}.compare-label{text-align:left;width:auto}.compare-track{width:100%}}
+</style>
+</head>
+<body>
+<div class="presentation" id="presentation">
+<div class="top-progress" id="topProgress"></div>
+
+<!-- SLIDE 1: Cover -->
+<div class="slide slide-cover active" id="slide-1">
+<div class="cover-bg"></div>
+<div class="cover-decoration deco-1"></div>
+<div class="cover-decoration deco-2"></div>
+<div class="cover-content">
+<div class="cover-tag mb-3">工程硕士学位论文答辩</div>
+<h1 style="font-size:clamp(26px,3.8vw,48px);color:var(--emphasis);margin-bottom:0.3em;">低空航拍可见光图像快速检测<br>甘蔗幼苗群体数量</h1>
+<p style="font-size:clamp(13px,1.3vw,17px);color:var(--secondary);margin-bottom:1.5em;font-style:italic;">Sugarcane Seedling Population Number Detection Based on Low-Altitude RGB Images</p>
+<div class="divider" style="margin:16px auto;"></div>
+<div class="flex justify-center gap-4 flex-wrap" style="margin-top:20px;">
+<div class="text-center"><p class="text-sm text-secondary">答辩人</p><p class="fw-600" style="font-size:clamp(14px,1.4vw,18px);">朱能志</p></div>
+<div style="width:1px;background:var(--card-border);"></div>
+<div class="text-center"><p class="text-sm text-secondary">指导教师</p><p class="fw-600" style="font-size:clamp(14px,1.4vw,18px);">李修华 副教授</p></div>
+<div style="width:1px;background:var(--card-border);"></div>
+<div class="text-center"><p class="text-sm text-secondary">学位类别</p><p class="fw-600" style="font-size:clamp(14px,1.4vw,18px);">工程硕士（控制工程）</p></div>
+</div>
+<div style="margin-top:24px;"><p class="text-sm text-secondary">广西大学 &nbsp;|&nbsp; 2021年6月8日</p></div>
+</div>
+</div>
+
+<!-- SLIDE 2: TOC -->
+<div class="slide" id="slide-2">
+<div class="section-header"><div class="chapter-label">CONTENTS</div><h2>目 录</h2><div class="divider"></div></div>
+<div class="flex flex-col gap-2">
+<div class="toc-item"><div class="toc-num">1</div><div class="toc-text"><h4>绪论</h4><p>研究背景、意义、国内外研究现状、主要研究内容</p></div></div>
+<div class="toc-item"><div class="toc-num">2</div><div class="toc-text"><h4>相关理论与技术基础</h4><p>感知机、BP算法、卷积神经网络、目标检测方法</p></div></div>
+<div class="toc-item"><div class="toc-num">3</div><div class="toc-text"><h4>甘蔗幼苗航拍图像数据集构建</h4><p>数据采集、图像增强、裁剪策略、数据标注与扩充</p></div></div>
+<div class="toc-item"><div class="toc-num">4</div><div class="toc-text"><h4>基于改进Faster R-CNN的甘蔗幼苗检测模型</h4><p>SGN-D模型设计、消融实验、算法对比</p></div></div>
+<div class="toc-item"><div class="toc-num">5</div><div class="toc-text"><h4>大尺寸航拍图像识别结果合并与去重</h4><p>坐标转换、NMS去重、IoU阈值优化</p></div></div>
+<div class="toc-item"><div class="toc-num">6</div><div class="toc-text"><h4>总结与展望</h4><p>全文总结、创新点、后续工作展望</p></div></div>
+</div>
+</div>
+
+<!-- SLIDE 3: Chinese Abstract -->
+<div class="slide" id="slide-3">
+<div class="section-header"><div class="chapter-label">ABSTRACT</div><h2>中文摘要</h2><div class="divider"></div></div>
+<div class="highlight-bar mb-3"><p><strong>研究背景：</strong>甘蔗出苗率是评价甘蔗品种萌芽能力和田间生产性能的重要指标。传统人工调查方法效率低、成本高，难以满足大规模育种需求。</p></div>
+<div class="two-col gap-3">
+<div><h3 class="mb-2">研究方法</h3><ul class="bullet-list"><li>利用无人机低空航拍获取甘蔗幼苗RGB图像</li><li>提出基于改进Faster R-CNN的SGN-D检测模型</li><li>设计SN-Block注意力模块增强目标特征</li><li>引入FPN多尺度特征融合解决小目标漏检</li><li>优化RPN先验框参数适配幼苗形状</li></ul></div>
+<div><h3 class="mb-2">主要成果</h3><div class="card card-accent mb-2"><p class="fw-600 text-title">AP = 93.67%</p><p class="text-sm">SGN-D模型平均精度</p></div><div class="card card-accent mb-2"><p class="fw-600 text-title">ACC = 96.83%</p><p class="text-sm">幼苗计数准确率</p></div><div class="card card-accent"><p class="fw-600 text-title">MAE = 4.60 株</p><p class="text-sm">平均绝对误差</p></div></div>
+</div>
+<div class="tag-group mt-2"><span class="badge">深度学习</span><span class="badge">目标检测</span><span class="badge">无人机航拍</span><span class="badge">甘蔗幼苗</span></div>
+</div>
+
+<!-- SLIDE 4: English Abstract -->
+<div class="slide" id="slide-4">
+<div class="section-header"><div class="chapter-label">ABSTRACT</div><h2>English Abstract</h2><div class="divider"></div></div>
+<div class="highlight-bar mb-3"><p><strong>Background:</strong> Sugarcane emergence rate is a critical indicator for evaluating variety germination ability and field production performance. Traditional manual survey methods are inefficient and costly.</p></div>
+<div class="two-col gap-3">
+<div><h3 class="mb-2">Methodology</h3><ul class="bullet-list"><li>Low-altitude UAV aerial photography for RGB image acquisition</li><li>SGN-D model based on improved Faster R-CNN</li><li>SN-Block attention module for target feature enhancement</li><li>FPN multi-scale feature fusion for small target detection</li><li>Optimized RPN anchor parameters for seedling shape</li></ul></div>
+<div><h3 class="mb-2">Key Results</h3><div class="card card-accent mb-2"><p class="fw-600 text-title">AP = 93.67%</p><p class="text-sm">Average Precision of SGN-D model</p></div><div class="card card-accent mb-2"><p class="fw-600 text-title">ACC = 96.83%</p><p class="text-sm">Seedling counting accuracy</p></div><div class="card card-accent"><p class="fw-600 text-title">MAE = 4.60 plants</p><p class="text-sm">Mean Absolute Error</p></div></div>
+</div>
+<div class="tag-group mt-2"><span class="badge">Deep Learning</span><span class="badge">Object Detection</span><span class="badge">UAV</span><span class="badge">Sugarcane Seedling</span></div>
+</div>
+
+<!-- SLIDE 5: Ch1 Background -->
+<div class="slide" id="slide-5">
+<div class="section-header"><div class="chapter-label">CHAPTER 1 &mdash; 绪论</div><h2>研究背景</h2><div class="divider"></div></div>
+<div class="two-col gap-3">
+<div>
+<div class="card mb-2 glow glow-purple"><h3 class="mb-1">甘蔗产业的重要性</h3><ul class="bullet-list"><li>中国甘蔗种植面积占糖料作物的<strong>85%以上</strong></li><li>甘蔗产糖量占全国食糖总量的<strong>90%以上</strong></li><li>广西是全国最大的甘蔗产区，种植面积和产量均居首位</li><li>甘蔗产业是广西经济的支柱产业之一</li></ul></div>
+<div class="card card-accent"><h3 class="mb-1">出苗率的关键作用</h3><ul class="bullet-list"><li>出苗率直接反映品种的萌芽能力</li><li>影响甘蔗的田间有效茎数和最终产量</li><li>是甘蔗新品种选育中的核心评价指标</li></ul></div>
+</div>
+<div>
+<div class="card mb-2" style="border-left:4px solid #e65100;"><h3 class="mb-1" style="color:#e65100;">传统人工调查的局限</h3><ul class="bullet-list"><li><strong>效率低：</strong>人工逐株计数耗时长，一个小区需数人配合</li><li><strong>成本高：</strong>需要大量人力投入，育种试验小区数量多</li><li><strong>误差大：</strong>人工计数容易遗漏或重复，主观性强</li><li><strong>时效差：</strong>无法在最佳调查窗口期快速完成大面积调查</li><li><strong>破坏性：</strong>田间走动可能踩伤幼苗，影响试验结果</li></ul></div>
+<div class="highlight-bar"><p><strong>核心问题：</strong>如何快速、准确地获取甘蔗幼苗群体数量，是甘蔗育种和生产中亟待解决的技术难题。</p></div>
+</div>
+</div>
+</div>
+
+<!-- SLIDE 6: Ch1 Significance -->
+<div class="slide" id="slide-6">
+<div class="section-header"><div class="chapter-label">CHAPTER 1 &mdash; 绪论</div><h2>研究意义</h2><div class="divider"></div></div>
+<div class="three-col gap-3">
+<div class="card glow glow-purple"><div class="icon-box icon-blue mb-2">&#9992;</div><h3 class="mb-1">无人机航拍优势</h3><ul class="bullet-list"><li>快速获取大面积田间图像</li><li>非接触式测量，不损伤作物</li><li>高分辨率RGB图像，信息丰富</li><li>灵活调整飞行高度和覆盖范围</li><li>数据采集效率提升数十倍</li></ul></div>
+<div class="card glow glow-yellow"><div class="icon-box icon-green mb-2">&#9881;</div><h3 class="mb-1">深度学习优势</h3><ul class="bullet-list"><li>自动学习图像特征，无需手工设计</li><li>对复杂背景具有强鲁棒性</li><li>端到端训练，检测精度高</li><li>可处理大规模图像数据</li><li>推理速度快，适合实际应用</li></ul></div>
+<div class="card" style="border-left:4px solid var(--title);"><div class="icon-box icon-orange mb-2">&#9733;</div><h3 class="mb-1">实际应用价值</h3><ul class="bullet-list"><li>提高甘蔗育种效率，加速新品种选育</li><li>减少人工成本，节约育种经费</li><li>实现出苗率的精准、快速评估</li><li>为甘蔗精准农业提供技术支撑</li><li>可推广至其他作物幼苗检测</li></ul></div>
+</div>
+<div class="highlight-bar mt-3"><p><strong>研究目标：</strong>结合无人机低空航拍与深度学习技术，实现甘蔗幼苗群体数量的快速、高精度自动检测。</p></div>
+</div>
+
+<!-- SLIDE 7: Ch1 Literature UAV -->
+<div class="slide" id="slide-7">
+<div class="section-header"><div class="chapter-label">CHAPTER 1 &mdash; 绪论</div><h2>国内外研究现状 — 无人机农业应用</h2><div class="divider"></div></div>
+<div class="card-grid">
+<div class="card"><h4 class="text-title mb-1">Barrero 等 (2018)</h4><p class="text-sm text-secondary mb-1">水稻田间杂草检测</p><p>利用无人机RGB图像结合图像处理方法，实现水稻田间杂草的自动识别与定位。</p></div>
+<div class="card"><h4 class="text-title mb-1">Enciso 等 (2019)</h4><p class="text-sm text-secondary mb-1">番茄表型性状鉴定</p><p>基于无人机多光谱图像，提取番茄植株的株高、冠幅等表型性状参数。</p></div>
+<div class="card"><h4 class="text-title mb-1">Ampatzidis 等 (2019)</h4><p class="text-sm text-secondary mb-1">柑橘园检测</p><p>利用无人机图像和深度学习方法，实现柑橘树的自动检测与计数。</p></div>
+<div class="card"><h4 class="text-title mb-1">Xu 等 (2020)</h4><p class="text-sm text-secondary mb-1">棉花表型分析</p><p>基于无人机RGB图像，结合深度学习实现棉花株数和表型参数的自动提取。</p></div>
+<div class="card"><h4 class="text-title mb-1">Jung 等 (2020)</h4><p class="text-sm text-secondary mb-1">棉花冠层覆盖度</p><p>利用无人机多时相图像，监测棉花冠层覆盖度的动态变化。</p></div>
+</div>
+<div class="highlight-bar mt-2"><p><strong>趋势：</strong>无人机在农业领域的应用日益广泛，从单纯的图像采集发展到结合深度学习进行智能分析。</p></div>
+</div>
+
+<!-- SLIDE 8: Ch1 Literature DL -->
+<div class="slide" id="slide-8">
+<div class="section-header"><div class="chapter-label">CHAPTER 1 &mdash; 绪论</div><h2>国内外研究现状 — 深度学习目标检测</h2><div class="divider"></div></div>
+<div class="two-col gap-3">
+<div>
+<div class="card mb-2"><h3 class="mb-1">深度学习在农业中的发展</h3><ul class="bullet-list"><li>CNN相关论文在农业领域占比达<strong>42%</strong></li><li>目标检测成为作物计数的主要技术手段</li><li>Faster R-CNN在作物检测中应用最为广泛</li><li>Mask R-CNN在实例分割任务中表现优异</li><li>SSD、YOLO系列在实时检测场景中优势明显</li></ul></div>
+<div class="card card-accent"><h3 class="mb-1">主要应用方向</h3><ul class="bullet-list"><li>作物幼苗检测与计数</li><li>果实识别与产量估计</li><li>病虫害检测与诊断</li><li>杂草识别与精准施药</li></ul></div>
+</div>
+<div>
+<div class="card mb-2" style="border-left:4px solid #e65100;"><h3 class="mb-1" style="color:#e65100;">现有方法的局限性</h3><ul class="bullet-list"><li><strong>通用模型不适配：</strong>直接使用预训练模型对甘蔗幼苗检测效果有限</li><li><strong>小目标漏检：</strong>幼苗在航拍图像中占比小，容易漏检</li><li><strong>背景干扰：</strong>土壤、杂草等背景复杂，影响检测精度</li><li><strong>样本不足：</strong>缺乏公开的甘蔗幼苗航拍数据集</li><li><strong>大图像处理：</strong>航拍图像分辨率高，直接检测计算量大</li></ul></div>
+<div class="highlight-bar"><p><strong>研究空白：</strong>目前尚无针对甘蔗幼苗航拍图像的专用检测模型和系统。</p></div>
+</div>
+</div>
+</div>
+
+<!-- SLIDE 9: Ch1 Problems -->
+<div class="slide" id="slide-9">
+<div class="section-header"><div class="chapter-label">CHAPTER 1 &mdash; 绪论</div><h2>存在的问题与挑战</h2><div class="divider"></div></div>
+<div class="grid-3 gap-3">
+<div class="card" style="border-top:3px solid #e65100;"><div class="icon-box icon-red mb-2">&#9888;</div><h4>训练样本缺乏</h4><p>甘蔗幼苗航拍图像数据集匮乏，标注成本高，样本多样性不足，影响模型泛化能力。</p></div>
+<div class="card" style="border-top:3px solid #e65100;"><div class="icon-box icon-red mb-2">&#9888;</div><h4>幼苗大小差异明显</h4><p>不同生长阶段的幼苗尺寸差异大，同一图像中目标尺度变化范围广，增加检测难度。</p></div>
+<div class="card" style="border-top:3px solid #e65100;"><div class="icon-box icon-red mb-2">&#9888;</div><h4>风力影响</h4><p>田间风力导致幼苗倾斜、叶片遮挡，影响目标的外观特征，降低检测鲁棒性。</p></div>
+<div class="card" style="border-top:3px solid #e65100;"><div class="icon-box icon-red mb-2">&#9888;</div><h4>交叉遮挡</h4><p>相邻幼苗之间叶片交叉重叠，导致目标边界模糊，影响检测和分割精度。</p></div>
+<div class="card" style="border-top:3px solid #e65100;"><div class="icon-box icon-red mb-2">&#9888;</div><h4>图像大而目标小</h4><p>航拍图像分辨率高（5472x3648），但幼苗仅占很小区域，小目标检测是核心难点。</p></div>
+<div class="card" style="border-top:3px solid #e65100;"><div class="icon-box icon-red mb-2">&#9888;</div><h4>背景复杂多样</h4><p>田间土壤颜色不均匀，杂草、残茬等干扰物多，与幼苗颜色相近，区分困难。</p></div>
+</div>
+</div>
+
+<!-- SLIDE 10: Ch1 Research Contents -->
+<div class="slide" id="slide-10">
+<div class="section-header"><div class="chapter-label">CHAPTER 1 &mdash; 绪论</div><h2>主要研究内容</h2><div class="divider"></div></div>
+<div class="steps">
+<div class="step"><div class="step-number">1</div><div class="step-content"><h4>构建甘蔗幼苗航拍图像数据集</h4><p>利用无人机采集田间甘蔗幼苗RGB图像，设计自适应对比度增强算法和裁剪策略，完成数据标注与扩充，构建高质量训练数据集。</p></div></div>
+<div class="step"><div class="step-number">2</div><div class="step-content"><h4>基于改进Faster R-CNN的检测模型设计</h4><p>以Faster R-CNN为基础框架，引入SN-Block注意力模块、FPN多尺度特征融合和改进RPN先验框，提出SGN-D检测模型。</p></div></div>
+<div class="step"><div class="step-number">3</div><div class="step-content"><h4>不同CNN结构改进对比实验</h4><p>对比VGG16、ResNet50、ResNet101等不同特征提取网络的效果，通过消融实验验证各改进模块的有效性。</p></div></div>
+<div class="step"><div class="step-number">4</div><div class="step-content"><h4>大尺寸航拍图像识别结果合并与去重</h4><p>设计子图检测结果到原图的坐标映射算法，基于NMS实现跨子图重复检测的去重，优化IoU阈值参数。</p></div></div>
+</div>
+</div>
+
+<!-- SLIDE 11: Ch1 Technical Route -->
+<div class="slide" id="slide-11">
+<div class="section-header"><div class="chapter-label">CHAPTER 1 &mdash; 绪论</div><h2>研究技术路线</h2><div class="divider"></div></div>
+<div class="two-col gap-3">
+<div><div class="card"><h3 class="text-center mb-2">训练过程流程</h3>
+<div class="flow-row mb-2"><div class="flow-box">原始航拍图像</div><span class="flow-arrow">&rarr;</span><div class="flow-box">对比度增强</div><span class="flow-arrow">&rarr;</span><div class="flow-box">图像裁剪</div></div>
+<div class="flow-row mb-2"><div class="flow-box">数据标注</div><span class="flow-arrow">&rarr;</span><div class="flow-box">数据扩充</div><span class="flow-arrow">&rarr;</span><div class="flow-box">训练集/验证集</div></div>
+<div class="flow-row"><div class="flow-box flow-box-dark">SGN-D模型训练</div><span class="flow-arrow">&rarr;</span><div class="flow-box flow-box-dark">模型评估与优化</div></div>
+</div></div>
+<div><div class="card"><h3 class="text-center mb-2">检测过程流程</h3>
+<div class="flow-row mb-2"><div class="flow-box">待测航拍图像</div><span class="flow-arrow">&rarr;</span><div class="flow-box">对比度增强</div><span class="flow-arrow">&rarr;</span><div class="flow-box">带重叠裁剪</div></div>
+<div class="flow-row mb-2"><div class="flow-box flow-box-dark">SGN-D模型推理</div><span class="flow-arrow">&rarr;</span><div class="flow-box">子图检测结果</div></div>
+<div class="flow-row"><div class="flow-box">坐标转换</div><span class="flow-arrow">&rarr;</span><div class="flow-box">NMS去重</div><span class="flow-arrow">&rarr;</span><div class="flow-box" style="background:#e8f5e9;border-color:#4caf50;color:#2e7d32;">最终计数结果</div></div>
+</div></div>
+</div>
+<div class="highlight-bar mt-2"><p><strong>技术路线特点：</strong>训练与检测流程解耦，支持大尺寸图像的快速检测，通过坐标映射和NMS去重保证计数准确性。</p></div>
+</div>
+
+<!-- SLIDE 12: Ch2 Perceptron -->
+<div class="slide" id="slide-12">
+<div class="section-header"><div class="chapter-label">CHAPTER 2 &mdash; 相关理论与技术基础</div><h2>感知机模型</h2><div class="divider"></div></div>
+<div class="two-col gap-3">
+<div>
+<div class="card mb-2"><h3 class="mb-1">单层感知机 (Single Layer Perceptron)</h3><p class="mb-2">感知机是最简单的神经网络模型，由输入层和输出层组成，通过线性加权求和与激活函数实现分类。</p>
+<div class="formula">y = f(w<sub>1</sub>x<sub>1</sub> + w<sub>2</sub>x<sub>2</sub> + ... + w<sub>n</sub>x<sub>n</sub> + b)</div>
+<ul class="bullet-list mt-2"><li><strong>w</strong>：权重向量</li><li><strong>b</strong>：偏置项</li><li><strong>f</strong>：激活函数（阶跃函数）</li></ul></div>
+</div>
+<div>
+<div class="card mb-2"><h3 class="mb-1">多层感知机 (MLP)</h3><p class="mb-2">通过引入隐藏层和非线性激活函数，多层感知机可以解决非线性可分问题。</p>
+<div class="flow-row mb-2"><div class="flow-box" style="font-size:clamp(10px,0.9vw,13px);">输入层</div><span class="flow-arrow">&rarr;</span><div class="flow-box" style="font-size:clamp(10px,0.9vw,13px);">隐藏层1</div><span class="flow-arrow">&rarr;</span><div class="flow-box" style="font-size:clamp(10px,0.9vw,13px);">隐藏层2</div><span class="flow-arrow">&rarr;</span><div class="flow-box" style="font-size:clamp(10px,0.9vw,13px);">输出层</div></div></div>
+<div class="card card-accent"><h3 class="mb-1">线性分类与非线性可分</h3><ul class="bullet-list"><li><strong>线性可分：</strong>单层感知机可以找到一条直线/超平面将两类分开</li><li><strong>非线性可分（XOR问题）：</strong>单层感知机无法解决，需要多层网络</li><li><strong>通用近似定理：</strong>具有足够神经元的单隐层网络可以逼近任意连续函数</li></ul></div>
+</div>
+</div>
+</div>
+
+<!-- SLIDE 13: Ch2 BP Algorithm -->
+<div class="slide" id="slide-13">
+<div class="section-header"><div class="chapter-label">CHAPTER 2 &mdash; 相关理论与技术基础</div><h2>BP算法 (Backpropagation)</h2><div class="divider"></div></div>
+<div class="three-col gap-3">
+<div class="card"><div class="icon-box icon-blue mb-2">&#10132;</div><h3 class="mb-1">前向传播</h3><p class="mb-2">输入信号逐层向前传递，经过加权求和和非线性激活，最终产生网络输出。</p>
+<div class="formula" style="font-size:clamp(11px,1vw,14px);">a<sup>l</sup> = &sigma;(W<sup>l</sup> &middot; a<sup>l-1</sup> + b<sup>l</sup>)</div>
+<ul class="bullet-list mt-2"><li>逐层计算各神经元输出</li><li>常用激活函数：ReLU, Sigmoid, Tanh</li></ul></div>
+<div class="card"><div class="icon-box icon-green mb-2">&#8634;</div><h3 class="mb-1">反向传播</h3><p class="mb-2">根据输出误差，利用链式法则逐层计算损失函数对各参数的梯度。</p>
+<div class="formula" style="font-size:clamp(11px,1vw,14px);">&delta;<sup>l</sup> = (W<sup>l+1</sup>)<sup>T</sup> &delta;<sup>l+1</sup> &odot; &sigma;'(z<sup>l</sup>)</div>
+<ul class="bullet-list mt-2"><li>从输出层向输入层逐层传播误差</li><li>计算各层权值和偏置的梯度</li></ul></div>
+<div class="card"><div class="icon-box icon-orange mb-2">&#8693;</div><h3 class="mb-1">权值更新</h3><p class="mb-2">利用梯度下降法，沿梯度反方向更新网络参数，最小化损失函数。</p>
+<div class="formula" style="font-size:clamp(11px,1vw,14px);">W := W - &eta; &middot; &part;L/&part;W</div>
+<ul class="bullet-list mt-2"><li>&eta;：学习率</li><li>优化器：SGD, Adam, RMSprop等</li></ul></div>
+</div>
+<div class="highlight-bar mt-3"><p><strong>BP算法核心思想：</strong>利用链式法则高效计算梯度，通过迭代优化使网络输出逼近真实标签，是深度学习训练的基础。</p></div>
+</div>
+
+<!-- SLIDE 14: Ch2 CNN Basics -->
+<div class="slide" id="slide-14">
+<div class="section-header"><div class="chapter-label">CHAPTER 2 &mdash; 相关理论与技术基础</div><h2>卷积神经网络基础</h2><div class="divider"></div></div>
+<div class="two-col gap-3">
+<div><h3 class="mb-2">CNN发展历程</h3>
+<div class="timeline">
+<div class="timeline-item"><h4>LeNet-5 (1998)</h4><p class="text-sm">手写数字识别，开创CNN先河</p></div>
+<div class="timeline-item"><h4>AlexNet (2012)</h4><p class="text-sm">ImageNet冠军，深度学习复兴</p></div>
+<div class="timeline-item"><h4>GoogLeNet (2014)</h4><p class="text-sm">Inception模块，多尺度特征提取</p></div>
+<div class="timeline-item"><h4>VGGNet (2014)</h4><p class="text-sm">深层小卷积核，结构简洁</p></div>
+<div class="timeline-item"><h4>ResNet (2015)</h4><p class="text-sm">残差连接，突破深度限制</p></div>
+<div class="timeline-item"><h4>ResNeXt (2017)</h4><p class="text-sm">分组卷积，提升模型表达能力</p></div>
+</div></div>
+<div>
+<div class="card mb-2"><h3 class="mb-1">核心概念</h3>
+<div class="flex flex-col gap-2">
+<div class="card-white"><h4 class="text-title">卷积 (Convolution)</h4><p class="text-sm">通过卷积核在输入上滑动，提取局部特征。参数共享减少参数量。</p></div>
+<div class="card-white"><h4 class="text-title">感受野 (Receptive Field)</h4><p class="text-sm">输出特征图上每个像素对应输入图像上的区域大小，深层网络感受野更大。</p></div>
+<div class="card-white"><h4 class="text-title">池化 (Pooling)</h4><p class="text-sm">降低特征图空间尺寸，减少计算量，增强平移不变性。常用最大池化和平均池化。</p></div>
+</div></div>
+</div>
+</div>
+</div>
+
+<!-- SLIDE 15: Ch2 Traditional Detection -->
+<div class="slide" id="slide-15">
+<div class="section-header"><div class="chapter-label">CHAPTER 2 &mdash; 相关理论与技术基础</div><h2>传统目标检测方法</h2><div class="divider"></div></div>
+<div class="steps mb-3">
+<div class="step"><div class="step-number">1</div><div class="step-content"><h4>滑窗扫描 (Sliding Window)</h4><p>使用不同尺寸的滑动窗口在图像上逐位置扫描，生成大量候选区域。计算量大，效率低。</p></div></div>
+<div class="step"><div class="step-number">2</div><div class="step-content"><h4>特征提取 (Feature Extraction)</h4><p>从候选区域中提取手工设计的特征描述子，包括Haar特征、HOG特征、SIFT特征、SURF特征等。</p></div></div>
+<div class="step"><div class="step-number">3</div><div class="step-content"><h4>分类器 (Classifier)</h4><p>使用Adaboost、SVM等机器学习分类器对候选区域进行分类，判断是否包含目标。</p></div></div>
+</div>
+<div class="card" style="border-left:4px solid #e65100;"><h3 class="mb-1" style="color:#e65100;">传统方法的主要缺点</h3>
+<div class="grid-2 gap-2 mt-1">
+<div class="card-white"><p class="fw-600 text-title">特征表达能力有限</p><p class="text-sm">手工特征难以应对复杂场景下的外观变化</p></div>
+<div class="card-white"><p class="fw-600 text-title">计算效率低</p><p class="text-sm">滑窗扫描产生大量冗余候选区域</p></div>
+<div class="card-white"><p class="fw-600 text-title">泛化能力差</p><p class="text-sm">针对特定场景设计，难以迁移到新任务</p></div>
+<div class="card-white"><p class="fw-600 text-title">端到端优化困难</p><p class="text-sm">各模块独立优化，无法全局联合训练</p></div>
+</div></div>
+</div>
+
+<!-- SLIDE 16: Ch2 Region-based Detection -->
+<div class="slide" id="slide-16">
+<div class="section-header"><div class="chapter-label">CHAPTER 2 &mdash; 相关理论与技术基础</div><h2>基于候选区域的深度学习检测</h2><div class="divider"></div></div>
+<div class="three-col gap-3">
+<div class="card glow glow-purple"><h3 class="mb-1 text-center">R-CNN (2014)</h3><div class="divider" style="margin:8px auto;"></div>
+<ul class="bullet-list"><li>使用Selective Search生成约2000个候选区域</li><li>每个区域独立通过CNN提取特征</li><li>SVM分类器进行目标分类</li><li>检测速度慢：每张图约47秒</li></ul>
+<div class="highlight-bar mt-2"><p class="text-sm"><strong>贡献：</strong>首次将CNN用于目标检测，大幅提升检测精度。</p></div></div>
+<div class="card glow glow-yellow"><h3 class="mb-1 text-center">Fast R-CNN (2015)</h3><div class="divider" style="margin:8px auto;"></div>
+<ul class="bullet-list"><li>整张图通过CNN提取特征图</li><li>ROI Pooling统一候选区域尺寸</li><li>全连接层同时完成分类和回归</li><li>端到端训练（除候选区域生成外）</li></ul>
+<div class="highlight-bar mt-2"><p class="text-sm"><strong>贡献：</strong>共享卷积计算，检测速度提升至约2秒/张。</p></div></div>
+<div class="card" style="border:2px solid var(--title);"><h3 class="mb-1 text-center">Faster R-CNN (2015)</h3><div class="divider" style="margin:8px auto;"></div>
+<ul class="bullet-list"><li>提出RPN网络替代Selective Search</li><li>锚框机制自动生成候选区域</li><li>真正的端到端训练框架</li><li>检测速度约5fps，精度进一步提升</li></ul>
+<div class="highlight-bar mt-2"><p class="text-sm"><strong>贡献：</strong>实现近实时检测，成为两阶段检测器的标杆。</p></div></div>
+</div>
+</div>
+
+<!-- SLIDE 17: Ch2 Faster R-CNN Detail -->
+<div class="slide" id="slide-17">
+<div class="section-header"><div class="chapter-label">CHAPTER 2 &mdash; 相关理论与技术基础</div><h2>Faster R-CNN算法详解</h2><div class="divider"></div></div>
+<div class="flow-row mb-3">
+<div class="arch-block arch-input">输入图像</div><span class="flow-arrow">&rarr;</span>
+<div class="arch-block arch-feature">特征提取网络<br><span class="text-xs">(VGG16/ResNet)</span></div><span class="flow-arrow">&rarr;</span>
+<div class="arch-block arch-rpn">RPN网络<br><span class="text-xs">(候选区域生成)</span></div><span class="flow-arrow">&rarr;</span>
+<div class="arch-block arch-detect">ROI Pooling<br><span class="text-xs">(区域特征对齐)</span></div><span class="flow-arrow">&rarr;</span>
+<div class="arch-block arch-output">分类+回归<br><span class="text-xs">(检测结果)</span></div>
+</div>
+<div class="two-col gap-3">
+<div><div class="card mb-2"><h3 class="mb-1">VGG16特征提取网络</h3><p class="mb-2">由13个卷积层和3个全连接层组成，使用3x3小卷积核堆叠。</p>
+<div class="table-wrapper"><table class="text-center-table"><thead><tr><th>阶段</th><th>输出尺寸</th><th>卷积核</th></tr></thead>
+<tbody><tr><td>Conv1</td><td>224x224x64</td><td>3x3x64</td></tr><tr><td>Conv2</td><td>112x112x128</td><td>3x3x128</td></tr><tr><td>Conv3</td><td>56x56x256</td><td>3x3x256</td></tr><tr><td>Conv4</td><td>28x28x512</td><td>3x3x512</td></tr><tr><td>Conv5</td><td>14x14x512</td><td>3x3x512</td></tr></tbody></table></div></div></div>
+<div><div class="card"><h3 class="mb-1">RPN先验框机制</h3><p class="mb-2">在特征图每个像素位置生成k个不同尺度和宽高比的锚框（Anchor），通过分类和回归筛选候选区域。</p>
+<ul class="bullet-list"><li><strong>默认宽高比：</strong>1:1, 1:2, 2:1</li><li><strong>默认尺寸：</strong>128, 256, 512</li><li><strong>每个位置：</strong>生成9种锚框</li><li><strong>IoU阈值：</strong>正样本>0.7，负样本<0.3</li></ul>
+<div class="highlight-bar mt-2"><p class="text-sm"><strong>关键：</strong>锚框参数需要根据目标实际尺寸和形状进行优化调整。</p></div></div></div>
+</div>
+</div>
+
+<!-- SLIDE 18: Ch3 Data Collection -->
+<div class="slide" id="slide-18">
+<div class="section-header"><div class="chapter-label">CHAPTER 3 &mdash; 数据集构建</div><h2>数据采集</h2><div class="divider"></div></div>
+<div class="two-col gap-3">
+<div>
+<div class="card mb-2 glow glow-purple"><h3 class="mb-1">采集地点</h3><p class="mb-2">广西大学扶绥农科新城甘蔗试验基地</p>
+<div class="kv-row"><span class="kv-key">地理位置</span><span class="kv-val">广西崇左市扶绥县</span></div>
+<div class="kv-row"><span class="kv-key">采集时间</span><span class="kv-val">甘蔗出苗期</span></div>
+<div class="kv-row"><span class="kv-key">采集数量</span><span class="kv-val"><strong>238幅</strong>RGB图像</span></div></div>
+<div class="card card-accent"><h3 class="mb-1">采集设备</h3><p class="fw-600 text-title mb-1">大疆精灵4 Pro (DJI Phantom 4 Pro)</p>
+<ul class="bullet-list"><li>传感器：1英寸CMOS，2000万像素</li><li>镜头：8.8mm/24mm等效</li><li>支持GPS定位和悬停</li></ul></div>
+</div>
+<div>
+<div class="card mb-2"><h3 class="mb-1">飞行参数</h3>
+<div class="table-wrapper"><table><thead><tr><th>参数</th><th>设置值</th></tr></thead>
+<tbody><tr><td>飞行高度</td><td>10 m</td></tr><tr><td>飞行速度</td><td>2 m/s</td></tr><tr><td>图像分辨率</td><td>5472 &times; 3648</td></tr><tr><td>图像格式</td><td>JPEG (RGB)</td></tr><tr><td>相机角度</td><td>垂直向下 (Nadir)</td></tr><tr><td>重叠率</td><td>航向80% / 旁向70%</td></tr></tbody></table></div></div>
+<div class="highlight-bar"><p><strong>设计考虑：</strong>飞行高度10m可在保证单株幼苗可分辨的前提下，最大化单幅图像的覆盖面积。</p></div>
+</div>
+</div>
+</div>
+
+<!-- SLIDE 19: Ch3 ACE -->
+<div class="slide" id="slide-19">
+<div class="section-header"><div class="chapter-label">CHAPTER 3 &mdash; 数据集构建</div><h2>图像自适应对比度增强</h2><div class="divider"></div></div>
+<div class="two-col gap-3">
+<div>
+<div class="card mb-2"><h3 class="mb-1">增强目的</h3><p class="mb-2">航拍图像中甘蔗幼苗（绿色）与土壤背景（棕褐色）对比度不足，影响后续检测效果。通过自适应对比度增强提升前景与背景的区分度。</p>
+<div class="highlight-bar mt-2"><p class="text-sm"><strong>核心思想：</strong>增强图像的高频分量（边缘和纹理信息），同时保持低频分量（整体亮度）不变。</p></div></div>
+<div class="card"><h3 class="mb-1">算法参数</h3>
+<div class="kv-row"><span class="kv-key">alpha (&alpha;)</span><span class="kv-val">0.2（低通滤波权重系数）</span></div>
+<div class="kv-row"><span class="kv-key">Max CG</span><span class="kv-val">10（最大对比度增益）</span></div>
+<div class="kv-row"><span class="kv-key">滤波方式</span><span class="kv-val">高斯低通滤波</span></div></div>
+</div>
+<div>
+<div class="card"><h3 class="mb-1">处理流程</h3>
+<div class="steps">
+<div class="step"><div class="step-number">1</div><div class="step-content"><h4>低通滤波</h4><p>对原始图像进行高斯低通滤波，得到低频分量图像。</p></div></div>
+<div class="step"><div class="step-number">2</div><div class="step-content"><h4>提取高频分量</h4><p>原始图像减去低频分量，得到高频分量（边缘和纹理）。</p></div></div>
+<div class="step"><div class="step-number">3</div><div class="step-content"><h4>增益处理</h4><p>对高频分量进行增益放大，增强边缘和纹理信息。</p></div></div>
+<div class="step"><div class="step-number">4</div><div class="step-content"><h4>图像重组</h4><p>将增益后的高频分量与低频分量相加，得到增强后的图像。</p></div></div>
+</div></div>
+</div>
+</div>
+</div>
+
+<!-- SLIDE 20: Ch3 Cropping -->
+<div class="slide" id="slide-20">
+<div class="section-header"><div class="chapter-label">CHAPTER 3 &mdash; 数据集构建</div><h2>图像裁剪策略</h2><div class="divider"></div></div>
+<div class="two-col gap-3">
+<div>
+<div class="card mb-2"><h3 class="mb-1">无重叠度裁剪（训练集/验证集）</h3><p class="mb-2">将大尺寸航拍图像按固定尺寸无重叠裁剪，确保训练样本之间无重复内容。</p>
+<ul class="bullet-list"><li>子图尺寸：600 &times; 600 像素</li><li>裁剪方式：从左到右、从上到下顺序裁剪</li><li>边缘不足600像素的区域被舍弃</li><li>训练集：2392张子图</li><li>验证集：398张子图</li></ul></div>
+<div class="card card-accent"><h3 class="mb-1">带重叠度裁剪（测试集）</h3><p class="mb-2">测试时采用带重叠的裁剪策略，避免位于裁剪边界的幼苗被截断导致漏检。</p>
+<ul class="bullet-list"><li>子图尺寸：600 &times; 600 像素</li><li>重叠度：100像素</li><li>测试集：2340张子图</li><li>后续通过NMS去重消除重复检测</li></ul></div>
+</div>
+<div>
+<div class="card"><h3 class="mb-2">数据集统计</h3>
+<div class="table-wrapper mb-2"><table class="text-center-table"><thead><tr><th>数据集</th><th>子图数量</th><th>裁剪方式</th><th>用途</th></tr></thead>
+<tbody><tr><td>训练集</td><td>2392</td><td>无重叠</td><td>模型训练</td></tr><tr><td>验证集</td><td>398</td><td>无重叠</td><td>超参数调优</td></tr><tr><td>测试集</td><td>2340</td><td>重叠100px</td><td>性能评估</td></tr></tbody></table></div>
+<div class="result-highlight"><div class="big-number">5130</div><div class="big-label">裁剪后子图总数</div></div>
+</div>
+</div>
+</div>
+</div>
+
+<!-- SLIDE 21: Ch3 Annotation & Augmentation -->
+<div class="slide" id="slide-21">
+<div class="section-header"><div class="chapter-label">CHAPTER 3 &mdash; 数据集构建</div><h2>数据标注与扩充</h2><div class="divider"></div></div>
+<div class="two-col gap-3">
+<div>
+<div class="card mb-2"><h3 class="mb-1">数据标注</h3><p class="mb-2">使用LabelImg标注软件对裁剪后的子图进行标注，标注类别为"sugarcane seedling"。</p>
+<div class="kv-row"><span class="kv-key">标注工具</span><span class="kv-val">LabelImg</span></div>
+<div class="kv-row"><span class="kv-key">标注格式</span><span class="kv-val">PASCAL VOC (XML)</span></div>
+<div class="kv-row"><span class="kv-key">标注类别</span><span class="kv-val">1类（甘蔗幼苗）</span></div>
+<div class="kv-row"><span class="kv-key">样本总数</span><span class="kv-val"><strong>9625个</strong>甘蔗幼苗</span></div></div>
+<div class="highlight-bar"><p><strong>标注规范：</strong>标注框紧贴幼苗叶片边缘，包含完整的可见部分，避免包含过多背景。</p></div>
+</div>
+<div>
+<div class="card"><h3 class="mb-1">数据扩充 (Data Augmentation)</h3><p class="mb-2">为增加训练样本的多样性，防止过拟合，对训练集进行5种几何变换扩充。</p>
+<div class="grid-2 gap-2 mt-2">
+<div class="card-white text-center"><p class="fw-600 text-title">水平翻转</p><p class="text-sm">沿垂直轴镜像</p></div>
+<div class="card-white text-center"><p class="fw-600 text-title">垂直翻转</p><p class="text-sm">沿水平轴镜像</p></div>
+<div class="card-white text-center"><p class="fw-600 text-title">旋转90&deg;</p><p class="text-sm">顺时针旋转</p></div>
+<div class="card-white text-center"><p class="fw-600 text-title">旋转180&deg;</p><p class="text-sm">旋转半圈</p></div>
+<div class="card-white text-center" style="grid-column:span 2;"><p class="fw-600 text-title">旋转270&deg;</p><p class="text-sm">逆时针旋转90度</p></div>
+</div>
+<div class="result-highlight mt-2"><div class="big-number">14352</div><div class="big-label">扩充后训练集总数（原始2392 &times; 6）</div></div>
+</div>
+</div>
+</div>
+</div>
+
+<!-- SLIDE 22: Ch4 SGN-D Overview -->
+<div class="slide" id="slide-22">
+<div class="section-header"><div class="chapter-label">CHAPTER 4 &mdash; SGN-D模型</div><h2>SGN-D模型概述</h2><div class="divider"></div></div>
+<div class="card mb-3"><div class="flex items-center gap-2 mb-2"><div class="cover-tag">SGN-D</div><p class="text-sm text-secondary">Sugarcane seedliNG Detection</p></div>
+<p>SGN-D模型是基于Faster R-CNN框架进行多方面改进的甘蔗幼苗检测模型，针对航拍图像中幼苗目标小、背景复杂等特点进行了针对性优化。</p></div>
+<div class="grid-2 gap-3">
+<div class="card glow glow-purple" style="border-top:3px solid var(--title);"><div class="flex items-center gap-2 mb-1"><div class="step-number" style="width:28px;height:28px;font-size:13px;">1</div><h4>ResNet50 + SN-Block 特征提取</h4></div><p>以ResNet50为骨干网络，在残差块中嵌入SN-Block注意力模块，增强对幼苗目标的特征提取能力。</p></div>
+<div class="card glow glow-yellow" style="border-top:3px solid #e65100;"><div class="flex items-center gap-2 mb-1"><div class="step-number" style="width:28px;height:28px;font-size:13px;">2</div><h4>FPN多尺度特征融合</h4></div><p>引入特征金字塔网络（FPN），融合不同层级的特征图，增强对小尺寸幼苗的检测能力。</p></div>
+<div class="card" style="border-top:3px solid #2e7d32;"><div class="flex items-center gap-2 mb-1"><div class="step-number" style="width:28px;height:28px;font-size:13px;">3</div><h4>改进RPN先验框</h4></div><p>根据训练集中幼苗标注框的实际统计分布，重新设计先验框的宽高比和尺寸参数。</p></div>
+<div class="card" style="border-top:3px solid #7b1fa2;"><div class="flex items-center gap-2 mb-1"><div class="step-number" style="width:28px;height:28px;font-size:13px;">4</div><h4>Fast R-CNN检测网络</h4></div><p>利用ROI Align替代ROI Pooling，配合FPN多尺度特征进行精确的分类和边界框回归。</p></div>
+</div>
+</div>
+
+<!-- SLIDE 23: Ch4 Architecture -->
+<div class="slide" id="slide-23">
+<div class="section-header"><div class="chapter-label">CHAPTER 4 &mdash; SGN-D模型</div><h2>网络模型整体结构</h2><div class="divider"></div></div>
+<div class="card mb-2"><h3 class="text-center mb-2">SGN-D 模型架构</h3>
+<div class="flow-row mb-2"><div class="arch-block arch-input">输入图像<br><span class="text-xs">600&times;600&times;3</span></div><span class="flow-arrow">&rarr;</span><div class="arch-block arch-feature">ResNet50 + SN-Block<br><span class="text-xs">特征提取网络</span></div><span class="flow-arrow">&rarr;</span><div class="arch-block arch-feature">FPN<br><span class="text-xs">多尺度特征融合</span></div></div>
+<div class="flow-row mb-2"><div class="arch-block arch-rpn">改进RPN<br><span class="text-xs">候选区域生成</span></div><span class="flow-arrow">&rarr;</span><div class="arch-block arch-detect">ROI Align<br><span class="text-xs">区域特征提取</span></div><span class="flow-arrow">&rarr;</span><div class="arch-block arch-output">分类 + 回归<br><span class="text-xs">检测结果输出</span></div></div>
+</div>
+<div class="grid-2 gap-3">
+<div class="card"><h3 class="mb-1">特征提取层</h3><ul class="bullet-list"><li>ResNet50作为骨干网络，提取C2~C5多级特征</li><li>SN-Block嵌入残差块，增强目标特征表达</li><li>输出4个层级的特征图供FPN使用</li></ul></div>
+<div class="card"><h3 class="mb-1">检测网络层</h3><ul class="bullet-list"><li>FPN生成P2~P6多尺度特征图</li><li>RPN在每层特征图上生成候选区域</li><li>ROI Align从多尺度特征中提取区域特征</li><li>全连接层输出分类概率和边界框偏移</li></ul></div>
+</div>
+</div>
+
+<!-- SLIDE 24: Ch4 ResNet50 -->
+<div class="slide" id="slide-24">
+<div class="section-header"><div class="chapter-label">CHAPTER 4 &mdash; SGN-D模型</div><h2>基于ResNet50的特征提取</h2><div class="divider"></div></div>
+<div class="two-col gap-3">
+<div>
+<div class="card mb-2"><h3 class="mb-1">残差块结构</h3><p class="mb-2">残差网络通过引入跳跃连接（Skip Connection），解决了深层网络训练中的梯度消失问题。</p>
+<div class="formula">y = F(x, {W<sub>i</sub>}) + x</div>
+<p class="text-sm mt-2">其中 F(x, {W<sub>i</sub>}) 为残差映射，x 为恒等映射。网络只需学习残差部分，降低了优化难度。</p></div>
+<div class="card card-accent"><h3 class="mb-1">选择ResNet50的原因</h3><ul class="bullet-list"><li>深度适中（50层），特征提取能力强</li><li>预训练模型在ImageNet上表现优异</li><li>计算量较ResNet101更小，推理速度更快</li><li>残差结构便于嵌入注意力模块</li></ul></div>
+</div>
+<div>
+<div class="card"><h3 class="mb-2">ResNet50五个阶段特征图</h3>
+<div class="table-wrapper"><table class="text-center-table"><thead><tr><th>阶段</th><th>残差块数</th><th>输出尺寸</th><th>通道数</th></tr></thead>
+<tbody><tr><td>conv1</td><td>-</td><td>300&times;300</td><td>64</td></tr><tr><td>layer1</td><td>3</td><td>150&times;150</td><td>256</td></tr><tr><td>layer2</td><td>4</td><td>75&times;75</td><td>512</td></tr><tr><td>layer3</td><td>6</td><td>38&times;38</td><td>1024</td></tr><tr><td>layer4</td><td>3</td><td>19&times;19</td><td>2048</td></tr></tbody></table></div>
+<div class="highlight-bar mt-2"><p class="text-sm"><strong>特征图选择：</strong>FPN使用C2~C5（layer1~layer4）的特征图进行多尺度融合。</p></div></div>
+</div>
+</div>
+</div>
+
+<!-- SLIDE 25: Ch4 SN-Block -->
+<div class="slide" id="slide-25">
+<div class="section-header"><div class="chapter-label">CHAPTER 4 &mdash; SGN-D模型</div><h2>SN-Block注意力模块</h2><div class="divider"></div></div>
+<div class="two-col gap-3">
+<div>
+<div class="card mb-2"><h3 class="mb-1">模块结构</h3><p class="mb-2">SN-Block是一种轻量级的通道注意力模块，通过学习各通道的重要性权重，自适应地增强目标相关特征，抑制背景噪声特征。</p>
+<div class="flow-row mb-2"><div class="flow-box" style="font-size:clamp(10px,0.9vw,13px);">输入 F<sub>in</sub></div><span class="flow-arrow">&rarr;</span><div class="flow-box" style="font-size:clamp(10px,0.9vw,13px);">3&times;3 Conv</div><span class="flow-arrow">&rarr;</span><div class="flow-box" style="font-size:clamp(10px,0.9vw,13px);">1&times;1 Conv</div><span class="flow-arrow">&rarr;</span><div class="flow-box" style="font-size:clamp(10px,0.9vw,13px);">3&times;3 Conv</div><span class="flow-arrow">&rarr;</span><div class="flow-box" style="font-size:clamp(10px,0.9vw,13px);">输出 F<sub>out</sub></div></div></div>
+<div class="card"><h3 class="mb-1">通道加权处理机制</h3><p class="mb-2">SN-Block通过1x1卷积实现通道间的信息交互，生成通道权重向量，对输入特征进行逐通道加权。</p>
+<div class="formula">F<sub>out</sub> = H<sub>c</sub>(F<sub>in</sub>) &times; F<sub>in</sub></div>
+<p class="text-sm mt-2">其中 H<sub>c</sub> 为通道注意力函数，&times; 表示逐通道乘法。</p></div>
+</div>
+<div>
+<div class="card"><h3 class="mb-1">核心优势</h3>
+<div class="flex flex-col gap-2">
+<div class="card-white"><p class="fw-600 text-title">增强目标特征</p><p class="text-sm">自动学习幼苗特征的重要性权重，增强网络对幼苗目标的敏感度。</p></div>
+<div class="card-white"><p class="fw-600 text-title">抑制背景特征</p><p class="text-sm">降低土壤、杂草等背景特征的响应，减少虚警和误检。</p></div>
+<div class="card-white"><p class="fw-600 text-title">轻量级设计</p><p class="text-sm">仅增加少量参数和计算量，不显著影响推理速度。</p></div>
+<div class="card-white"><p class="fw-600 text-title">即插即用</p><p class="text-sm">可灵活嵌入现有CNN结构中，无需修改网络整体框架。</p></div>
+</div></div>
+</div>
+</div>
+</div>
+
+<!-- SLIDE 26: Ch4 FPN -->
+<div class="slide" id="slide-26">
+<div class="section-header"><div class="chapter-label">CHAPTER 4 &mdash; SGN-D模型</div><h2>多尺度特征融合（FPN）</h2><div class="divider"></div></div>
+<div class="two-col gap-3">
+<div>
+<div class="card mb-2"><h3 class="mb-1">FPN结构原理</h3><p class="mb-2">特征金字塔网络（Feature Pyramid Network）通过自顶向下的路径和横向连接，构建具有丰富语义信息的多尺度特征金字塔。</p>
+<div class="flow-row mb-2" style="flex-direction:column;align-items:stretch;">
+<div class="flow-box flow-box-dark" style="width:100%;">P6 (19&times;19) &mdash; 最大锚框</div>
+<span class="flow-arrow" style="transform:rotate(90deg);">&#8595;</span>
+<div class="flow-box" style="width:100%;">P5 (19&times;19) &larr; C5 + 上采样</div>
+<span class="flow-arrow" style="transform:rotate(90deg);">&#8595;</span>
+<div class="flow-box" style="width:100%;">P4 (38&times;38) &larr; C4 + 上采样 + 横向连接</div>
+<span class="flow-arrow" style="transform:rotate(90deg);">&#8595;</span>
+<div class="flow-box" style="width:100%;">P3 (75&times;75) &larr; C3 + 上采样 + 横向连接</div>
+<span class="flow-arrow" style="transform:rotate(90deg);">&#8595;</span>
+<div class="flow-box" style="width:100%;background:#e8f5e9;border-color:#4caf50;color:#2e7d32;">P2 (150&times;150) &larr; C2 + 上采样 + 横向连接 &mdash; 小目标检测</div>
+</div></div>
+</div>
+<div>
+<div class="card mb-2"><h3 class="mb-1">解决小尺寸幼苗漏检问题</h3><ul class="bullet-list"><li><strong>浅层特征图（P2、P3）：</strong>空间分辨率高，保留丰富的位置信息和细节特征，适合检测小目标</li><li><strong>深层特征图（P5、P6）：</strong>语义信息强，适合检测大目标和提供上下文信息</li><li><strong>多尺度融合：</strong>每个层级同时具备强语义和高分辨率特征</li><li><strong>RPN多尺度分配：</strong>不同尺寸的锚框分配到不同层级特征图上</li></ul></div>
+<div class="highlight-bar"><p><strong>关键改进：</strong>添加P2层级特征图（150&times;150），为小尺寸幼苗提供更高分辨率的检测特征。</p></div>
+</div>
+</div>
+</div>
+
+<!-- SLIDE 27: Ch4 Improved Anchors -->
+<div class="slide" id="slide-27">
+<div class="section-header"><div class="chapter-label">CHAPTER 4 &mdash; SGN-D模型</div><h2>改进RPN先验框</h2><div class="divider"></div></div>
+<div class="two-col gap-3">
+<div>
+<div class="card mb-2"><h3 class="mb-1">默认先验框 vs 改进先验框</h3>
+<div class="table-wrapper mb-2"><table class="text-center-table"><thead><tr><th>参数</th><th>默认值</th><th>改进值</th></tr></thead>
+<tbody><tr><td>宽高比</td><td>1:1, 1:2, 2:1</td><td>1:1, 2:1, 4:5, 1:2</td></tr><tr><td>尺寸</td><td>128, 256, 512</td><td>16, 32, 64, 128, 256</td></tr><tr><td>每位置锚框数</td><td>9</td><td>20</td></tr></tbody></table></div>
+<p class="text-sm">改进后的先验框参数基于训练集中9625个幼苗标注框的宽高统计分布，更贴合甘蔗幼苗的实际形状。</p></div>
+<div class="highlight-bar"><p><strong>设计依据：</strong>甘蔗幼苗在航拍图像中尺寸较小（约16~256像素），宽高比集中在1:1附近，但也存在细长形（4:5, 1:2）和扁平形（2:1）的情况。</p></div>
+</div>
+<div>
+<div class="card"><h3 class="mb-1">先验框尺寸分布</h3>
+<div class="flex flex-col gap-2">
+<div><p class="text-sm fw-600 mb-1">4种宽高比</p><div class="tag-group"><span class="badge">1:1 正方形</span><span class="badge">2:1 横向</span><span class="badge">4:5 近正方</span><span class="badge">1:2 纵向</span></div></div>
+<div class="divider-full"></div>
+<div><p class="text-sm fw-600 mb-1">5种尺寸</p>
+<div class="flex gap-2 flex-wrap">
+<div class="stat-block card-white" style="flex:1;min-width:60px;"><div class="stat-number" style="font-size:clamp(18px,2vw,28px);">16</div><div class="stat-label">极小</div></div>
+<div class="stat-block card-white" style="flex:1;min-width:60px;"><div class="stat-number" style="font-size:clamp(18px,2vw,28px);">32</div><div class="stat-label">小</div></div>
+<div class="stat-block card-white" style="flex:1;min-width:60px;"><div class="stat-number" style="font-size:clamp(18px,2vw,28px);">64</div><div class="stat-label">中</div></div>
+<div class="stat-block card-white" style="flex:1;min-width:60px;"><div class="stat-number" style="font-size:clamp(18px,2vw,28px);">128</div><div class="stat-label">大</div></div>
+<div class="stat-block card-white" style="flex:1;min-width:60px;"><div class="stat-number" style="font-size:clamp(18px,2vw,28px);">256</div><div class="stat-label">极大</div></div>
+</div></div>
+<div class="divider-full"></div>
+<div class="result-highlight"><div class="big-number">4 &times; 5 = 20</div><div class="big-label">每个特征点生成20种先验框</div></div>
+</div></div>
+</div>
+</div>
+</div>
+
+<!-- SLIDE 28: Ch4 Experiment Design -->
+<div class="slide" id="slide-28">
+<div class="section-header"><div class="chapter-label">CHAPTER 4 &mdash; SGN-D模型</div><h2>实验设计</h2><div class="divider"></div></div>
+<div class="two-col gap-3">
+<div>
+<div class="card mb-2"><h3 class="mb-1">训练参数设置</h3>
+<div class="table-wrapper"><table><thead><tr><th>参数</th><th>设置值</th></tr></thead>
+<tbody><tr><td>优化器</td><td>SGD (动量=0.9)</td></tr><tr><td>初始学习率</td><td>0.02</td></tr><tr><td>学习率策略</td><td>StepLR (step=6, gamma=0.1)</td></tr><tr><td>训练轮数</td><td>12 epochs</td></tr><tr><td>批量大小</td><td>2 (每GPU)</td></tr><tr><td>权重衰减</td><td>0.0001</td></tr><tr><td>预训练权重</td><td>ImageNet预训练</td></tr><tr><td>GPU</td><td>NVIDIA GTX 1080 Ti</td></tr></tbody></table></div></div>
+</div>
+<div>
+<div class="card mb-2"><h3 class="mb-1">评估指标</h3><ul class="bullet-list"><li><strong>AP (Average Precision)：</strong>平均精度，综合反映检测精度和召回率</li><li><strong>AR (Average Recall)：</strong>平均召回率，衡量模型对目标的检出能力</li><li><strong>Precision：</strong>精确率 = TP / (TP + FP)</li><li><strong>Recall：</strong>召回率 = TP / (TP + FN)</li></ul></div>
+<div class="card card-accent"><h3 class="mb-1">对比实验方案</h3>
+<ul class="num-list"><li>不同特征提取器对比（VGG16 / ResNet50 / ResNet101）</li><li>消融实验（逐步添加改进模块）</li><li>与其他检测算法对比（YOLO v2/v3, SSD, Faster R-CNN）</li></ul></div>
+</div>
+</div>
+</div>
+
+<!-- SLIDE 29: Ch4 Feature Extractor Comparison -->
+<div class="slide" id="slide-29">
+<div class="section-header"><div class="chapter-label">CHAPTER 4 &mdash; SGN-D模型</div><h2>不同特征提取器对比</h2><div class="divider"></div></div>
+<div class="card mb-3"><h3 class="text-center mb-2">特征提取网络性能对比</h3>
+<div class="table-wrapper"><table class="text-center-table"><thead><tr><th>特征提取网络</th><th>AP (%)</th><th>参数量 (M)</th><th>推理速度 (fps)</th></tr></thead>
+<tbody><tr><td class="fw-600">VGG16</td><td>84.98</td><td>138</td><td>~7</td></tr>
+<tr><td class="fw-600">ResNet50</td><td>88.24</td><td>44</td><td>~12</td></tr>
+<tr><td class="fw-600" style="color:#2e7d32;">ResNet101</td><td style="color:#2e7d32;font-weight:700;">88.62</td><td>60</td><td>~8</td></tr></tbody></table></div></div>
+<div class="two-col gap-3">
+<div><h3 class="mb-2">AP对比</h3>
+<div class="compare-bar"><span class="compare-label">VGG16</span><div class="compare-track"><div class="compare-fill fill-blue" style="width:84.98%;">84.98%</div></div></div>
+<div class="compare-bar"><span class="compare-label">ResNet50</span><div class="compare-track"><div class="compare-fill fill-green" style="width:88.24%;">88.24%</div></div></div>
+<div class="compare-bar"><span class="compare-label">ResNet101</span><div class="compare-track"><div class="compare-fill fill-highlight" style="width:88.62%;">88.62%</div></div></div></div>
+<div><div class="highlight-bar mb-2"><p><strong>分析结论：</strong></p><ul class="bullet-list"><li>ResNet系列显著优于VGG16（+3.26~3.64%）</li><li>ResNet50与ResNet101精度接近（仅差0.38%）</li><li>ResNet50参数量仅为VGG16的1/3，推理速度更快</li><li><strong>综合选择ResNet50</strong>作为SGN-D的骨干网络</li></ul></div></div>
+</div>
+</div>
+
+<!-- SLIDE 30: Ch4 Ablation Study -->
+<div class="slide" id="slide-30">
+<div class="section-header"><div class="chapter-label">CHAPTER 4 &mdash; SGN-D模型</div><h2>模型改进消融实验</h2><div class="divider"></div></div>
+<div class="card mb-3"><h3 class="text-center mb-2">消融实验结果</h3>
+<div class="table-wrapper"><table class="text-center-table"><thead><tr><th>模型配置</th><th>骨干网络</th><th>SN-Block</th><th>FPN</th><th>改进RPN</th><th>AP (%)</th></tr></thead>
+<tbody><tr><td>Faster R-CNN</td><td>VGG16</td><td>&#10007;</td><td>&#10007;</td><td>&#10007;</td><td>86.58</td></tr>
+<tr><td>+ ResNet50</td><td>ResNet50</td><td>&#10007;</td><td>&#10007;</td><td>&#10007;</td><td>89.88</td></tr>
+<tr><td>+ SN-Block</td><td>ResNet50</td><td>&#10003;</td><td>&#10007;</td><td>&#10007;</td><td>90.59</td></tr>
+<tr style="background:var(--accent-light);"><td class="fw-700" style="color:var(--title);">SGN-D (最终)</td><td>ResNet50</td><td>&#10003;</td><td>&#10003;</td><td>&#10003;</td><td class="fw-700" style="color:#c62828;">93.67</td></tr></tbody></table></div></div>
+<div class="two-col gap-3">
+<div><h3 class="mb-2">AP提升过程</h3>
+<div class="compare-bar"><span class="compare-label">Baseline</span><div class="compare-track"><div class="compare-fill fill-blue" style="width:86.58%;">86.58%</div></div></div>
+<div class="compare-bar"><span class="compare-label">+ResNet50</span><div class="compare-track"><div class="compare-fill fill-green" style="width:89.88%;">89.88% (+3.30)</div></div></div>
+<div class="compare-bar"><span class="compare-label">+SN-Block</span><div class="compare-track"><div class="compare-fill fill-orange" style="width:90.59%;">90.59% (+0.71)</div></div></div>
+<div class="compare-bar"><span class="compare-label">+FPN+RPN</span><div class="compare-track"><div class="compare-fill fill-highlight" style="width:93.67%;">93.67% (+3.08)</div></div></div></div>
+<div><div class="highlight-bar"><p><strong>消融实验结论：</strong></p><ul class="bullet-list"><li>ResNet50替代VGG16提升<strong>+3.30%</strong></li><li>SN-Block注意力模块提升<strong>+0.71%</strong></li><li>FPN+改进RPN提升<strong>+3.08%</strong></li><li>累计提升<strong>+7.09%</strong>（86.58% &rarr; 93.67%）</li><li>FPN对小目标检测的提升最为显著</li></ul></div></div>
+</div>
+</div>
+
+<!-- SLIDE 31: Ch4 Algorithm Comparison -->
+<div class="slide" id="slide-31" style="justify-content:flex-start;padding-top:4vh;">
+<div class="section-header" style="margin-bottom:2vh;"><div class="chapter-label">CHAPTER 4 &mdash; SGN-D模型</div><h2>与其他算法对比</h2><div class="divider"></div></div>
+<div class="card mb-2" style="padding:clamp(12px,1.5vw,20px);"><h3 class="text-center mb-1" style="font-size:clamp(14px,1.6vw,20px);">不同目标检测算法性能对比</h3>
+<div class="table-wrapper"><table class="text-center-table"><thead><tr><th>算法</th><th>检测框架</th><th>骨干网络</th><th>AP (%)</th><th>速度 (fps)</th></tr></thead>
+<tbody><tr><td>YOLO v2</td><td>单阶段</td><td>DarkNet-19</td><td>79.75</td><td>~40</td></tr>
+<tr><td>YOLO v3</td><td>单阶段</td><td>DarkNet-53</td><td>82.46</td><td>~30</td></tr>
+<tr><td>SSD</td><td>单阶段</td><td>VGG16</td><td>77.50</td><td>~35</td></tr>
+<tr><td>Faster R-CNN</td><td>两阶段</td><td>VGG16</td><td>84.98</td><td>~7</td></tr>
+<tr style="background:var(--accent-light);"><td class="fw-700" style="color:var(--title);">SGN-D (Ours)</td><td>两阶段</td><td>ResNet50</td><td class="fw-700" style="color:#c62828;">93.67</td><td>~6</td></tr></tbody></table></div></div>
+<div class="two-col gap-2">
+<div><h3 class="mb-1" style="font-size:clamp(14px,1.6vw,20px);">AP对比可视化</h3>
+<div class="compare-bar" style="margin-bottom:8px;"><span class="compare-label">SSD</span><div class="compare-track"><div class="compare-fill fill-blue" style="width:77.50%;">77.50%</div></div></div>
+<div class="compare-bar" style="margin-bottom:8px;"><span class="compare-label">YOLO v2</span><div class="compare-track"><div class="compare-fill fill-blue" style="width:79.75%;">79.75%</div></div></div>
+<div class="compare-bar" style="margin-bottom:8px;"><span class="compare-label">YOLO v3</span><div class="compare-track"><div class="compare-fill fill-blue" style="width:82.46%;">82.46%</div></div></div>
+<div class="compare-bar" style="margin-bottom:8px;"><span class="compare-label">Faster R-CNN</span><div class="compare-track"><div class="compare-fill fill-green" style="width:84.98%;">84.98%</div></div></div>
+<div class="compare-bar" style="margin-bottom:8px;"><span class="compare-label">SGN-D</span><div class="compare-track"><div class="compare-fill fill-highlight" style="width:93.67%;">93.67%</div></div></div></div>
+<div>
+<div class="result-highlight" style="padding:clamp(12px,1.5vw,20px);"><div class="big-number" style="font-size:clamp(24px,3vw,44px);">93.67%</div><div class="big-label" style="font-size:clamp(12px,1.2vw,16px);">SGN-D AP &mdash; 最优结果</div></div>
+<div class="highlight-bar mt-1" style="padding:clamp(10px,1.2vw,16px);"><p style="margin-bottom:6px;"><strong>对比分析：</strong></p><ul class="bullet-list" style="margin-bottom:0;"><li>SGN-D比Faster R-CNN提升<strong>+8.69%</strong></li><li>SGN-D比YOLO v3提升<strong>+11.21%</strong></li><li>两阶段检测器精度整体优于单阶段</li><li>SGN-D在精度上显著领先</li></ul></div>
+</div>
+</div>
+</div>
+
+<!-- SLIDE 32: Ch5 Merge & Dedup -->
+<div class="slide" id="slide-32">
+<div class="section-header"><div class="chapter-label">CHAPTER 5 &mdash; 结果合并与去重</div><h2>检测结果合并与去重</h2><div class="divider"></div></div>
+<div class="two-col gap-3">
+<div>
+<div class="card mb-2"><h3 class="mb-1">坐标转换公式</h3><p class="mb-2">将子图中的检测框坐标映射回原始大尺寸航拍图像的坐标系。</p>
+<div class="formula mb-2">X<sub>orig</sub> = x<sub>sub</sub> + X<sub>offset</sub></div>
+<div class="formula">Y<sub>orig</sub> = y<sub>sub</sub> + Y<sub>offset</sub></div>
+<p class="text-sm mt-2">其中 (x<sub>sub</sub>, y<sub>sub</sub>) 为子图中检测框坐标，(X<sub>offset</sub>, Y<sub>offset</sub>) 为子图在原图中的偏移量。</p></div>
+<div class="card"><h3 class="mb-1">重叠区域问题</h3><p class="mb-2">由于测试时采用带重叠的裁剪策略，位于重叠区域的幼苗可能被多个子图重复检测。</p>
+<div class="flow-row"><div class="flow-box" style="font-size:clamp(10px,0.9vw,13px);">子图1检测结果</div><span class="flow-arrow">+</span><div class="flow-box" style="font-size:clamp(10px,0.9vw,13px);">子图2检测结果</div><span class="flow-arrow">&rarr;</span><div class="flow-box flow-box-dark" style="font-size:clamp(10px,0.9vw,13px);">坐标转换合并</div><span class="flow-arrow">&rarr;</span><div class="flow-box" style="font-size:clamp(10px,0.9vw,13px);background:#e8f5e9;border-color:#4caf50;color:#2e7d32;">NMS去重</div></div></div>
+</div>
+<div>
+<div class="card"><h3 class="mb-1">基于NMS的去重算法</h3>
+<div class="steps">
+<div class="step"><div class="step-number">1</div><div class="step-content"><h4>按置信度排序</h4><p>将所有检测框按置信度从高到低排序。</p></div></div>
+<div class="step"><div class="step-number">2</div><div class="step-content"><h4>选取最高置信度框</h4><p>取当前最高置信度的检测框作为保留框。</p></div></div>
+<div class="step"><div class="step-number">3</div><div class="step-content"><h4>计算IoU并抑制</h4><p>计算该框与其余所有框的IoU，IoU大于阈值的框被抑制（删除）。</p></div></div>
+<div class="step"><div class="step-number">4</div><div class="step-content"><h4>重复直至为空</h4><p>重复步骤2-3，直到所有检测框都被处理完毕。</p></div></div>
+</div></div>
+</div>
+</div>
+</div>
+
+<!-- SLIDE 33: Ch5 IoU Threshold -->
+<div class="slide" id="slide-33">
+<div class="section-header"><div class="chapter-label">CHAPTER 5 &mdash; 结果合并与去重</div><h2>IoU阈值实验结果</h2><div class="divider"></div></div>
+<div class="two-col gap-3">
+<div>
+<div class="card mb-2"><h3 class="mb-1">不同IoU阈值下的检测指标</h3>
+<div class="table-wrapper"><table class="text-center-table"><thead><tr><th>IoU阈值 (&lambda;)</th><th>Precision</th><th>Recall</th><th>F1-score</th></tr></thead>
+<tbody><tr><td>0.05</td><td>89.77%</td><td>97.70%</td><td>93.59%</td></tr>
+<tr><td>0.10</td><td>91.23%</td><td>96.64%</td><td>93.87%</td></tr>
+<tr style="background:var(--accent-light);"><td class="fw-700" style="color:var(--title);">0.15</td><td class="fw-700">92.70%</td><td class="fw-700">94.63%</td><td class="fw-700" style="color:#c62828;">93.66%</td></tr>
+<tr><td>0.20</td><td>93.90%</td><td>92.86%</td><td>93.38%</td></tr>
+<tr><td>0.30</td><td>95.65%</td><td>90.18%</td><td>92.84%</td></tr>
+<tr><td>0.50</td><td>97.19%</td><td>85.71%</td><td>91.08%</td></tr></tbody></table></div></div>
+</div>
+<div>
+<div class="card mb-2"><h3 class="mb-1">不同IoU阈值下的计数指标</h3>
+<div class="table-wrapper"><table class="text-center-table"><thead><tr><th>IoU阈值 (&lambda;)</th><th>ACC</th><th>MAE (株)</th><th>R&sup2;</th></tr></thead>
+<tbody><tr><td>0.05</td><td>95.30%</td><td>5.80</td><td>0.9847</td></tr>
+<tr><td>0.10</td><td>96.17%</td><td>5.10</td><td>0.9872</td></tr>
+<tr style="background:var(--accent-light);"><td class="fw-700" style="color:var(--title);">0.15</td><td class="fw-700" style="color:#c62828;">96.83%</td><td class="fw-700">4.60</td><td class="fw-700">0.9891</td></tr>
+<tr><td>0.20</td><td>96.50%</td><td>4.90</td><td>0.9884</td></tr>
+<tr><td>0.30</td><td>95.83%</td><td>5.40</td><td>0.9868</td></tr>
+<tr><td>0.50</td><td>93.17%</td><td>7.20</td><td>0.9782</td></tr></tbody></table></div></div>
+</div>
+</div>
+<div class="result-highlight mt-2">
+<div class="flex justify-center gap-4 flex-wrap">
+<div><div class="big-number" style="font-size:clamp(24px,3.5vw,48px);">&lambda; = 0.15</div><div class="big-label">最佳IoU阈值</div></div>
+<div style="width:1px;background:rgba(255,255,255,0.3);"></div>
+<div><div class="big-number" style="font-size:clamp(24px,3.5vw,48px);">F1 = 93.66%</div><div class="big-label">最优F1-score</div></div>
+<div style="width:1px;background:rgba(255,255,255,0.3);"></div>
+<div><div class="big-number" style="font-size:clamp(24px,3.5vw,48px);">ACC = 96.83%</div><div class="big-label">计数准确率</div></div>
+<div style="width:1px;background:rgba(255,255,255,0.3);"></div>
+<div><div class="big-number" style="font-size:clamp(24px,3.5vw,48px);">MAE = 4.60</div><div class="big-label">平均绝对误差（株）</div></div>
+</div>
+</div>
+</div>
+
+<!-- SLIDE 34: Ch5 Software System -->
+<div class="slide" id="slide-34">
+<div class="section-header"><div class="chapter-label">CHAPTER 5 &mdash; 系统设计</div><h2>系统软件设计</h2><div class="divider"></div></div>
+<div class="two-col gap-3">
+<div>
+<div class="card mb-2"><h3 class="mb-1">技术框架</h3>
+<div class="kv-row"><span class="kv-key">开发框架</span><span class="kv-val">PyQt5</span></div>
+<div class="kv-row"><span class="kv-key">编程语言</span><span class="kv-val">Python</span></div>
+<div class="kv-row"><span class="kv-key">深度学习框架</span><span class="kv-val">PyTorch</span></div>
+<div class="kv-row"><span class="kv-key">检测模型</span><span class="kv-val">SGN-D</span></div>
+<div class="kv-row"><span class="kv-key">图像处理</span><span class="kv-val">OpenCV, PIL</span></div></div>
+<div class="card"><h3 class="mb-1">功能模块</h3>
+<div class="flex flex-col gap-2">
+<div class="card-white"><p class="fw-600 text-title">训练功能模块</p><p class="text-sm">支持数据集路径配置、训练参数设置、训练过程可视化、模型保存与加载。</p></div>
+<div class="card-white"><p class="fw-600 text-title">检测功能模块</p><p class="text-sm">支持单张/批量图像检测、大图自动裁剪、结果合并去重、计数结果输出。</p></div>
+<div class="card-white"><p class="fw-600 text-title">用户界面</p><p class="text-sm">图形化操作界面，参数配置面板，检测结果可视化展示，操作日志显示。</p></div>
+</div></div>
+</div>
+<div>
+<div class="card"><h3 class="mb-2">系统工作流程</h3>
+<div class="flow-row mb-2"><div class="flow-box" style="font-size:clamp(10px,0.9vw,13px);">加载图像</div><span class="flow-arrow">&rarr;</span><div class="flow-box" style="font-size:clamp(10px,0.9vw,13px);">对比度增强</div></div>
+<div class="flow-row mb-2"><div class="flow-box" style="font-size:clamp(10px,0.9vw,13px);">带重叠裁剪</div><span class="flow-arrow">&rarr;</span><div class="flow-box flow-box-dark" style="font-size:clamp(10px,0.9vw,13px);">SGN-D推理</div></div>
+<div class="flow-row mb-2"><div class="flow-box" style="font-size:clamp(10px,0.9vw,13px);">坐标转换</div><span class="flow-arrow">&rarr;</span><div class="flow-box" style="font-size:clamp(10px,0.9vw,13px);">NMS去重</div></div>
+<div class="flow-row mb-3"><div class="flow-box" style="font-size:clamp(10px,0.9vw,13px);background:#e8f5e9;border-color:#4caf50;color:#2e7d32;">可视化结果 + 计数输出</div></div>
+<div class="highlight-bar"><p><strong>系统特点：</strong>界面友好、操作简便，育种人员无需编程知识即可使用，实现从图像输入到计数结果输出的一键式操作。</p></div>
+</div>
+</div>
+</div>
+</div>
+
+<!-- SLIDE 35: Ch6 Conclusion -->
+<div class="slide" id="slide-35">
+<div class="section-header"><div class="chapter-label">CHAPTER 6 &mdash; 总结与展望</div><h2>总结与展望</h2><div class="divider"></div></div>
+<div class="two-col gap-3">
+<div>
+<div class="card mb-2"><h3 class="mb-1">全文总结</h3>
+<div class="steps">
+<div class="step"><div class="step-number">1</div><div class="step-content"><h4>构建了甘蔗幼苗航拍图像数据集</h4><p>采集238幅无人机RGB图像，经增强、裁剪、标注和扩充，获得14352张训练样本、9625个标注实例。</p></div></div>
+<div class="step"><div class="step-number">2</div><div class="step-content"><h4>提出了SGN-D检测模型</h4><p>基于改进Faster R-CNN，引入SN-Block、FPN和改进RPN，AP达93.67%，显著优于对比算法。</p></div></div>
+<div class="step"><div class="step-number">3</div><div class="step-content"><h4>实现了大图像检测与计数系统</h4><p>设计坐标转换和NMS去重算法，最佳IoU阈值0.15下计数准确率达96.83%，MAE仅4.60株。</p></div></div>
+</div></div>
+</div>
+<div>
+<div class="card mb-2"><h3 class="mb-1">主要创新点</h3><ul class="bullet-list"><li><strong>SN-Block注意力模块：</strong>增强目标特征、抑制背景噪声，提升检测精度</li><li><strong>FPN + P2层级：</strong>添加高分辨率特征层，有效解决小尺寸幼苗漏检问题</li><li><strong>数据驱动的先验框设计：</strong>基于标注统计优化锚框参数，提高候选区域质量</li></ul></div>
+<div class="card card-accent"><h3 class="mb-1">后续工作展望</h3><ul class="bullet-list"><li>扩展数据集规模和多样性，覆盖更多品种和生长阶段</li><li>探索轻量化模型设计，部署到嵌入式设备实现实时检测</li><li>结合多光谱图像信息，提升复杂场景下的检测鲁棒性</li><li>研究幼苗生长状态的自动评估方法</li><li>开发移动端应用，方便田间实时使用</li></ul></div>
+</div>
+</div>
+<div class="result-highlight mt-2">
+<p style="font-size:clamp(14px,1.5vw,20px);font-weight:600;">感谢各位老师的指导与评审！</p>
+<p class="text-sm" style="opacity:0.8;margin-top:8px;">Thank you for your attention and guidance!</p>
+</div>
+</div>
+
+</div>
+
+<!-- Navigation -->
+<div class="nav-controls">
+<button class="nav-btn" id="prevBtn" title="上一页">&#8592;</button>
+<button class="nav-btn" id="nextBtn" title="下一页">&#8594;</button>
+</div>
+<div class="page-indicator" id="pageIndicator">1 / 35</div>
+
+<script>
+(function() {
+  'use strict';
+  var slides = document.querySelectorAll('.slide');
+  var totalSlides = slides.length;
+  var currentSlide = 0;
+  var prevBtn = document.getElementById('prevBtn');
+  var nextBtn = document.getElementById('nextBtn');
+  var pageIndicator = document.getElementById('pageIndicator');
+  var topProgress = document.getElementById('topProgress');
+
+  function updatePageIndicator() {
+    pageIndicator.textContent = (currentSlide + 1) + ' / ' + totalSlides;
+    var progress = ((currentSlide + 1) / totalSlides) * 100;
+    topProgress.style.width = progress + '%';
+  }
+
+  function goToSlide(index) {
+    if (index < 0 || index >= totalSlides || index === currentSlide) return;
+    var currentEl = slides[currentSlide];
+    var nextEl = slides[index];
+    if (index > currentSlide) {
+      currentEl.classList.remove('active');
+      currentEl.classList.add('exit-up');
+      nextEl.classList.remove('exit-up');
+      nextEl.classList.add('active');
+    } else {
+      currentEl.classList.remove('active');
+      currentEl.classList.remove('exit-up');
+      nextEl.classList.remove('exit-up');
+      nextEl.classList.add('active');
+    }
+    currentSlide = index;
+    updatePageIndicator();
+    nextEl.scrollTop = 0;
+  }
+
+  function nextSlide() {
+    if (currentSlide < totalSlides - 1) goToSlide(currentSlide + 1);
+  }
+
+  function prevSlide() {
+    if (currentSlide > 0) goToSlide(currentSlide - 1);
+  }
+
+  prevBtn.addEventListener('click', prevSlide);
+  nextBtn.addEventListener('click', nextSlide);
+
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'ArrowRight' || e.key === 'ArrowDown' || e.key === ' ' || e.key === 'PageDown') {
+      e.preventDefault();
+      nextSlide();
+    } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp' || e.key === 'PageUp') {
+      e.preventDefault();
+      prevSlide();
+    } else if (e.key === 'Home') {
+      e.preventDefault();
+      goToSlide(0);
+    } else if (e.key === 'End') {
+      e.preventDefault();
+      goToSlide(totalSlides - 1);
+    }
+  });
+
+  var touchStartY = 0;
+  var touchStartX = 0;
+  document.addEventListener('touchstart', function(e) {
+    touchStartY = e.touches[0].clientY;
+    touchStartX = e.touches[0].clientX;
+  }, { passive: true });
+
+  document.addEventListener('touchend', function(e) {
+    var touchEndY = e.changedTouches[0].clientY;
+    var touchEndX = e.changedTouches[0].clientX;
+    var diffY = touchStartY - touchEndY;
+    var diffX = touchStartX - touchEndX;
+    if (Math.abs(diffY) > Math.abs(diffX) && Math.abs(diffY) > 50) {
+      if (diffY > 0) nextSlide();
+      else prevSlide();
+    } else if (Math.abs(diffX) > 50) {
+      if (diffX > 0) nextSlide();
+      else prevSlide();
+    }
+  }, { passive: true });
+
+  updatePageIndicator();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,1345 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="icon" href="../assets/favicon.png" type="image/png" />
+<title>Maize Tassels Detection: A Benchmark of the State of the Art</title>
+<style>
+/* ========== RESET & BASE ========== */
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+:root {
+  --bg: #ffffff;
+  --text: #000000;
+  --title: #3966A2;
+  --emphasis: #132843;
+  --secondary: #6191D3;
+  --light-bg: #f4f7fb;
+  --card-shadow: 0 2px 16px rgba(19,40,67,0.08);
+  --card-radius: 14px;
+  --transition-speed: 0.5s;
+}
+
+html, body {
+  width: 100%; height: 100%;
+  overflow: hidden;
+  font-family: 'Inter', 'Noto Sans SC', -apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 16px;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ========== SLIDE CONTAINER ========== */
+.presentation {
+  width: 100vw; height: 100vh;
+  position: relative;
+  overflow: hidden;
+}
+
+.slide {
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  padding: 5vh 7vw;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(24px);
+  transition: opacity var(--transition-speed) ease, visibility var(--transition-speed) ease, transform var(--transition-speed) ease;
+  z-index: 1;
+}
+
+.slide.active {
+  opacity: 1 !important;
+  visibility: visible !important;
+  transform: translateY(0) !important;
+  z-index: 10;
+}
+
+.slide.exit-up {
+  opacity: 0 !important;
+  visibility: hidden !important;
+  transform: translateY(-24px) !important;
+}
+
+/* ========== PROGRESS BAR ========== */
+.progress-bar {
+  position: fixed;
+  top: 0; left: 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--title), var(--secondary));
+  transition: width 0.4s ease;
+  z-index: 100;
+  border-radius: 0 2px 2px 0;
+}
+
+/* ========== NAV DOTS ========== */
+.nav-dots {
+  position: fixed;
+  right: 24px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  z-index: 100;
+}
+
+.nav-dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: rgba(57,102,162,0.2);
+  border: none;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  padding: 0;
+}
+
+.nav-dot.active {
+  background: var(--title);
+  transform: scale(1.4);
+  box-shadow: 0 0 8px rgba(57,102,162,0.4);
+}
+
+.nav-dot:hover { background: var(--secondary); }
+
+/* ========== CONTROLS ========== */
+.controls {
+  position: fixed;
+  bottom: 28px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  z-index: 100;
+}
+
+.btn-nav {
+  width: 40px; height: 40px;
+  border-radius: 50%;
+  border: 1.5px solid var(--title);
+  background: var(--bg);
+  color: var(--title);
+  font-size: 18px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.25s ease;
+  line-height: 1;
+}
+
+.btn-nav:hover {
+  background: var(--title);
+  color: var(--bg);
+}
+
+.btn-nav:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+  background: var(--bg);
+  color: var(--title);
+}
+
+.page-counter {
+  font-size: 13px;
+  color: var(--secondary);
+  font-weight: 500;
+  min-width: 50px;
+  text-align: center;
+}
+
+/* ========== TYPOGRAPHY ========== */
+.slide-title {
+  font-size: clamp(1.6rem, 3.2vw, 2.6rem);
+  font-weight: 800;
+  color: var(--title);
+  margin-bottom: 1.2rem;
+  line-height: 1.3;
+  letter-spacing: -0.02em;
+}
+
+.slide-subtitle {
+  font-size: clamp(0.95rem, 1.4vw, 1.15rem);
+  color: var(--secondary);
+  font-weight: 500;
+  margin-bottom: 2rem;
+  line-height: 1.6;
+}
+
+.body-text {
+  font-size: clamp(0.85rem, 1.2vw, 1rem);
+  color: var(--text);
+  line-height: 1.75;
+  font-weight: 400;
+}
+
+.text-emphasis {
+  color: var(--emphasis);
+  font-weight: 600;
+}
+
+.text-secondary {
+  color: var(--secondary);
+}
+
+.text-small {
+  font-size: clamp(0.75rem, 1vw, 0.85rem);
+  color: #666;
+}
+
+/* ========== ANIMATIONS ========== */
+.anim {
+  opacity: 0;
+  transform: translateY(18px);
+  transition: opacity 0.5s ease, transform 0.5s ease;
+}
+
+.slide.active .anim {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.slide.active .anim:nth-child(1) { transition-delay: 0.08s; }
+.slide.active .anim:nth-child(2) { transition-delay: 0.16s; }
+.slide.active .anim:nth-child(3) { transition-delay: 0.24s; }
+.slide.active .anim:nth-child(4) { transition-delay: 0.32s; }
+.slide.active .anim:nth-child(5) { transition-delay: 0.40s; }
+.slide.active .anim:nth-child(6) { transition-delay: 0.48s; }
+.slide.active .anim:nth-child(7) { transition-delay: 0.56s; }
+.slide.active .anim:nth-child(8) { transition-delay: 0.64s; }
+
+/* ========== COMPONENTS ========== */
+
+/* Badge */
+.badge {
+  display: inline-block;
+  padding: 4px 14px;
+  border-radius: 20px;
+  font-size: clamp(0.65rem, 0.85vw, 0.78rem);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.badge-blue {
+  background: rgba(57,102,162,0.12);
+  color: var(--title);
+}
+
+.badge-dark {
+  background: var(--emphasis);
+  color: #fff;
+}
+
+.badge-outline {
+  background: transparent;
+  border: 1.5px solid var(--secondary);
+  color: var(--secondary);
+}
+
+/* Card */
+.card {
+  background: var(--bg);
+  border: 1px solid rgba(57,102,162,0.1);
+  border-radius: var(--card-radius);
+  padding: clamp(16px, 2vw, 28px);
+  box-shadow: var(--card-shadow);
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+}
+
+.card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 24px rgba(19,40,67,0.12);
+}
+
+.card-grid {
+  display: grid;
+  gap: clamp(12px, 1.5vw, 20px);
+}
+
+.card-grid-2 { grid-template-columns: repeat(2, 1fr); }
+.card-grid-3 { grid-template-columns: repeat(3, 1fr); }
+.card-grid-4 { grid-template-columns: repeat(4, 1fr); }
+
+.card-title {
+  font-size: clamp(0.9rem, 1.2vw, 1.05rem);
+  font-weight: 700;
+  color: var(--emphasis);
+  margin-bottom: 6px;
+}
+
+.card-desc {
+  font-size: clamp(0.75rem, 1vw, 0.88rem);
+  color: #444;
+  line-height: 1.6;
+}
+
+/* Highlight Bar */
+.highlight-bar {
+  background: linear-gradient(135deg, rgba(57,102,162,0.08), rgba(97,145,211,0.08));
+  border-left: 4px solid var(--title);
+  border-radius: 0 10px 10px 0;
+  padding: clamp(12px, 1.5vw, 20px) clamp(14px, 2vw, 24px);
+  margin: 1rem 0;
+}
+
+.highlight-bar .bar-title {
+  font-weight: 700;
+  color: var(--title);
+  font-size: clamp(0.85rem, 1.1vw, 0.95rem);
+  margin-bottom: 4px;
+}
+
+.highlight-bar .bar-text {
+  font-size: clamp(0.78rem, 1vw, 0.88rem);
+  color: #444;
+  line-height: 1.6;
+}
+
+/* Steps */
+.steps {
+  display: flex;
+  gap: clamp(8px, 1.2vw, 16px);
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+
+.step {
+  flex: 1;
+  min-width: 120px;
+  text-align: center;
+  position: relative;
+}
+
+.step-number {
+  width: 36px; height: 36px;
+  border-radius: 50%;
+  background: var(--title);
+  color: #fff;
+  font-weight: 700;
+  font-size: 0.85rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 8px;
+}
+
+.step-text {
+  font-size: clamp(0.72rem, 0.9vw, 0.82rem);
+  color: var(--emphasis);
+  font-weight: 500;
+  line-height: 1.5;
+}
+
+/* Bullet List */
+.bullet-list {
+  list-style: none;
+  padding: 0;
+}
+
+.bullet-list li {
+  position: relative;
+  padding-left: 20px;
+  margin-bottom: 10px;
+  font-size: clamp(0.82rem, 1.1vw, 0.95rem);
+  line-height: 1.65;
+  color: #333;
+}
+
+.bullet-list li::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 9px;
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: var(--secondary);
+}
+
+/* Quote Block */
+.quote-block {
+  border-left: 3px solid var(--secondary);
+  padding: 14px 20px;
+  background: rgba(97,145,211,0.04);
+  border-radius: 0 8px 8px 0;
+  font-style: italic;
+  font-size: clamp(0.85rem, 1.1vw, 0.95rem);
+  color: var(--emphasis);
+  line-height: 1.7;
+}
+
+/* Glow Decorations */
+.glow {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(80px);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.glow-blue {
+  width: 300px; height: 300px;
+  background: rgba(57,102,162,0.1);
+}
+
+.glow-light {
+  width: 250px; height: 250px;
+  background: rgba(97,145,211,0.12);
+}
+
+.glow-sm {
+  width: 180px; height: 180px;
+}
+
+/* Cover Tag */
+.cover-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 14px;
+  border-radius: 20px;
+  font-size: clamp(0.7rem, 0.85vw, 0.78rem);
+  font-weight: 500;
+  background: rgba(57,102,162,0.08);
+  color: var(--title);
+  margin-right: 8px;
+  margin-bottom: 6px;
+}
+
+/* Table */
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: clamp(0.75rem, 0.95vw, 0.85rem);
+}
+
+.data-table th {
+  background: var(--title);
+  color: #fff;
+  padding: 10px 14px;
+  text-align: center;
+  font-weight: 600;
+  font-size: clamp(0.72rem, 0.88vw, 0.8rem);
+}
+
+.data-table th:first-child { border-radius: 8px 0 0 0; }
+.data-table th:last-child { border-radius: 0 8px 0 0; }
+
+.data-table td {
+  padding: 9px 14px;
+  text-align: center;
+  border-bottom: 1px solid rgba(57,102,162,0.08);
+  color: #333;
+}
+
+.data-table tr:hover td { background: rgba(57,102,162,0.03); }
+
+.data-table .best {
+  color: var(--title);
+  font-weight: 700;
+}
+
+/* Section Divider */
+.section-label {
+  display: inline-block;
+  font-size: clamp(0.65rem, 0.8vw, 0.72rem);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--secondary);
+  margin-bottom: 10px;
+}
+
+/* Flex helpers */
+.flex-row { display: flex; gap: clamp(16px, 2.5vw, 32px); align-items: stretch; }
+.flex-col { display: flex; flex-direction: column; gap: clamp(10px, 1.5vw, 18px); }
+.flex-1 { flex: 1; }
+.items-center { align-items: center; }
+.justify-center { justify-content: center; }
+.text-center { text-align: center; }
+.mt-auto { margin-top: auto; }
+
+/* ========== SLIDE-SPECIFIC ========== */
+
+/* Cover */
+.cover-slide {
+  justify-content: center;
+  align-items: flex-start;
+  text-align: left;
+}
+
+.cover-slide .slide-title {
+  font-size: clamp(2rem, 4vw, 3.2rem);
+  margin-bottom: 0.6rem;
+  line-height: 1.2;
+}
+
+.cover-slide .cover-authors {
+  font-size: clamp(0.85rem, 1.2vw, 1rem);
+  color: #555;
+  margin-bottom: 0.5rem;
+}
+
+.cover-slide .cover-journal {
+  font-size: clamp(0.78rem, 1vw, 0.9rem);
+  color: var(--secondary);
+  font-weight: 500;
+}
+
+.cover-tags {
+  margin-top: 1.5rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+/* Two column layout */
+.two-col {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: clamp(20px, 3vw, 40px);
+  align-items: start;
+}
+
+.three-col {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: clamp(14px, 2vw, 24px);
+  align-items: start;
+}
+
+/* Metric card */
+.metric-card {
+  text-align: center;
+  padding: clamp(14px, 2vw, 22px);
+}
+
+.metric-value {
+  font-size: clamp(1.6rem, 2.8vw, 2.4rem);
+  font-weight: 800;
+  color: var(--title);
+  line-height: 1.1;
+}
+
+.metric-label {
+  font-size: clamp(0.7rem, 0.88vw, 0.8rem);
+  color: #666;
+  margin-top: 4px;
+  font-weight: 500;
+}
+
+/* Finding card */
+.finding-card {
+  border-top: 3px solid var(--title);
+}
+
+.finding-card .card-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.finding-num {
+  display: inline-flex;
+  width: 24px; height: 24px;
+  border-radius: 50%;
+  background: var(--title);
+  color: #fff;
+  font-size: 0.7rem;
+  font-weight: 700;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+/* Improvement card */
+.improve-card {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.improve-icon {
+  width: 36px; height: 36px;
+  border-radius: 10px;
+  background: rgba(57,102,162,0.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  font-size: 1rem;
+}
+
+/* Conclusion */
+.conclusion-highlight {
+  background: linear-gradient(135deg, var(--emphasis), var(--title));
+  color: #fff;
+  padding: clamp(20px, 3vw, 36px);
+  border-radius: 16px;
+  text-align: center;
+}
+
+.conclusion-highlight h3 {
+  font-size: clamp(1.1rem, 1.6vw, 1.4rem);
+  font-weight: 700;
+  margin-bottom: 10px;
+}
+
+.conclusion-highlight p {
+  font-size: clamp(0.82rem, 1.1vw, 0.95rem);
+  opacity: 0.9;
+  line-height: 1.7;
+}
+
+/* Dataset stat row */
+.stat-row {
+  display: flex;
+  justify-content: space-around;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+/* Method comparison */
+.method-badge {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 6px;
+  font-size: clamp(0.68rem, 0.82vw, 0.75rem);
+  font-weight: 600;
+  margin-right: 4px;
+  margin-bottom: 4px;
+}
+
+.method-badge-det {
+  background: rgba(57,102,162,0.12);
+  color: var(--title);
+}
+
+.method-badge-reg {
+  background: rgba(19,40,67,0.1);
+  color: var(--emphasis);
+}
+</style>
+</head>
+<body>
+
+<div class="presentation">
+
+  <!-- Progress Bar -->
+  <div class="progress-bar" id="progressBar"></div>
+
+  <!-- Nav Dots -->
+  <div class="nav-dots" id="navDots"></div>
+
+  <!-- ==================== SLIDE 1: COVER ==================== -->
+  <div class="slide cover-slide active" data-index="0">
+    <div class="glow glow-blue" style="top: -80px; right: -60px;"></div>
+    <div class="glow glow-light glow-sm" style="bottom: 60px; left: 10%;"></div>
+
+    <div class="section-label anim">Plant Methods (2020) 16:108</div>
+    <h1 class="slide-title anim">Maize Tassels Detection:<br>A Benchmark of the State of the Art</h1>
+    <p class="cover-authors anim">Hongwei Zou, Hao Lu, Yanan Li, Liang Liu, Zhiguo Cao</p>
+    <p class="cover-journal anim">华中科技大学 &middot; Plant Methods</p>
+
+    <div class="cover-tags anim">
+      <span class="cover-tag">目标检测</span>
+      <span class="cover-tag">密度回归</span>
+      <span class="cover-tag">植物表型分析</span>
+      <span class="cover-tag">深度学习</span>
+    </div>
+  </div>
+
+  <!-- ==================== SLIDE 2: BACKGROUND ==================== -->
+  <div class="slide" data-index="1">
+    <div class="glow glow-light" style="top: -40px; left: -80px;"></div>
+
+    <div class="section-label anim">研究背景</div>
+    <h2 class="slide-title anim">为什么需要自动化植物计数？</h2>
+
+    <div class="two-col" style="margin-top: 0.5rem;">
+      <div class="flex-col">
+        <div class="highlight-bar anim">
+          <div class="bar-title">核心挑战</div>
+          <div class="bar-text">植物计数是植物表型分析和农业生产的关键指标，但传统人工计数方法费时费力且容易出错。</div>
+        </div>
+        <ul class="bullet-list anim">
+          <li>大田环境中植物数量庞大，人工计数效率极低</li>
+          <li>不同观察者之间计数结果一致性差</li>
+          <li>田间条件复杂：光照变化、遮挡、尺度差异</li>
+        </ul>
+      </div>
+      <div class="flex-col">
+        <div class="card anim">
+          <div class="card-title">深度学习的机遇</div>
+          <div class="card-desc">深度学习在计算机视觉领域取得突破性进展，为农业自动化提供了新的解决方案。</div>
+        </div>
+        <div class="card anim">
+          <div class="card-title">两大技术范式</div>
+          <div class="card-desc" style="margin-bottom: 8px;">
+            <span class="method-badge method-badge-det">检测法 Detection-based</span>
+            <span class="method-badge method-badge-reg">回归法 Regression-based</span>
+          </div>
+          <div class="card-desc">如何在这两种范式之间做出合理选择，尚未被系统探索。</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== SLIDE 3: OBJECTIVES ==================== -->
+  <div class="slide" data-index="2">
+    <div class="glow glow-blue" style="bottom: -60px; right: -40px;"></div>
+
+    <div class="section-label anim">研究目标</div>
+    <h2 class="slide-title anim">系统评估最先进的检测与计数方法</h2>
+
+    <div class="highlight-bar anim" style="margin-bottom: 1.5rem;">
+      <div class="bar-text">以田间玉米雄穗（Maize Tassels）为代表性案例，构建基准数据集，全面比较检测法与回归法的性能。</div>
+    </div>
+
+    <div class="steps anim" style="margin-bottom: 1.8rem;">
+      <div class="step">
+        <div class="step-number">1</div>
+        <div class="step-text">构建带边界框标注的基准数据集 MTDC</div>
+      </div>
+      <div class="step">
+        <div class="step-number">2</div>
+        <div class="step-text">选取代表性检测与回归方法</div>
+      </div>
+      <div class="step">
+        <div class="step-number">3</div>
+        <div class="step-text">多维度评估：精度、鲁棒性、速度</div>
+      </div>
+      <div class="step">
+        <div class="step-number">4</div>
+        <div class="step-text">分析两种范式的优劣与适用场景</div>
+      </div>
+    </div>
+
+    <div class="card-grid card-grid-4 anim">
+      <div class="card metric-card">
+        <div class="metric-value">5</div>
+        <div class="metric-label">评估方法</div>
+      </div>
+      <div class="card metric-card">
+        <div class="metric-value">361</div>
+        <div class="metric-label">图像数量</div>
+      </div>
+      <div class="card metric-card">
+        <div class="metric-value">13,562</div>
+        <div class="metric-label">边界框标注</div>
+      </div>
+      <div class="card metric-card">
+        <div class="metric-value">5+</div>
+        <div class="metric-label">评估指标</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== SLIDE 4: MTDC DATASET ==================== -->
+  <div class="slide" data-index="3">
+    <div class="glow glow-light glow-sm" style="top: 20px; right: -40px;"></div>
+    <div class="glow glow-blue glow-sm" style="bottom: 40px; left: -30px;"></div>
+
+    <div class="section-label anim">数据集</div>
+    <h2 class="slide-title anim">MTDC 数据集</h2>
+    <p class="slide-subtitle anim">在 MTC 数据集基础上添加精确的边界框标注</p>
+
+    <div class="two-col">
+      <div class="flex-col">
+        <div class="stat-row anim" style="margin-bottom: 1rem;">
+          <div class="card metric-card">
+            <div class="metric-value">361</div>
+            <div class="metric-label">图像总数</div>
+          </div>
+          <div class="card metric-card">
+            <div class="metric-value">13,562</div>
+            <div class="metric-label">边界框</div>
+          </div>
+          <div class="card metric-card">
+            <div class="metric-value">4</div>
+            <div class="metric-label">实验田</div>
+          </div>
+        </div>
+        <div class="card anim">
+          <div class="card-title">数据集特点</div>
+          <ul class="bullet-list" style="margin-top: 8px;">
+            <li>覆盖抽穗期到开花期的完整生长阶段</li>
+            <li>包含 6 个不同玉米品种</li>
+            <li>来自 16 个独立时间序列</li>
+            <li>训练集 186 张 / 测试集 175 张</li>
+          </ul>
+        </div>
+      </div>
+      <div class="flex-col">
+        <div class="highlight-bar anim">
+          <div class="bar-title">标注方式</div>
+          <div class="bar-text">在原始 MTC 密度标注基础上，为每个雄穗添加了精确的边界框（bounding box），使得同时支持检测法和回归法的训练与评估。</div>
+        </div>
+        <div class="card anim">
+          <div class="card-title">数据多样性</div>
+          <div class="card-desc">
+            <span class="badge badge-blue" style="margin-right:4px;">尺度变化</span>
+            <span class="badge badge-blue" style="margin-right:4px;">密度差异</span>
+            <span class="badge badge-blue" style="margin-right:4px;">光照变化</span>
+            <span class="badge badge-blue" style="margin-right:4px;">遮挡</span>
+            <span class="badge badge-blue">多品种</span>
+          </div>
+          <div class="card-desc" style="margin-top: 8px;">数据集涵盖了大田环境中常见的各种挑战性条件，为方法评估提供了全面的测试基准。</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== SLIDE 5: METHODS OVERVIEW ==================== -->
+  <div class="slide" data-index="4">
+    <div class="glow glow-blue" style="top: -50px; left: 50%;"></div>
+
+    <div class="section-label anim">方法介绍</div>
+    <h2 class="slide-title anim">五种评估方法概览</h2>
+
+    <div class="card-grid card-grid-3 anim" style="margin-bottom: 1rem;">
+      <div class="card">
+        <div style="margin-bottom: 8px;">
+          <span class="method-badge method-badge-det">检测法</span>
+        </div>
+        <div class="card-title">Faster R-CNN</div>
+        <div class="card-desc">两阶段检测器，基于 ResNet-34 + FPN 骨干网络，精度高但速度较慢。</div>
+      </div>
+      <div class="card">
+        <div style="margin-bottom: 8px;">
+          <span class="method-badge method-badge-det">检测法</span>
+        </div>
+        <div class="card-title">RetinaNet</div>
+        <div class="card-desc">单阶段检测器，使用 Focal Loss 处理正负样本类别不平衡问题。</div>
+      </div>
+      <div class="card">
+        <div style="margin-bottom: 8px;">
+          <span class="method-badge method-badge-det">检测法</span>
+        </div>
+        <div class="card-title">YOLOv3</div>
+        <div class="card-desc">单阶段检测器，DarkNet-53 骨干网络，速度与精度的良好平衡。</div>
+      </div>
+    </div>
+
+    <div class="card-grid card-grid-2 anim">
+      <div class="card">
+        <div style="margin-bottom: 8px;">
+          <span class="method-badge method-badge-det">检测法</span>
+          <span class="badge badge-outline" style="font-size: 0.68rem;">轻量级</span>
+        </div>
+        <div class="card-title">FaceBoxes</div>
+        <div class="card-desc">轻量级单阶段检测器，专为快速推理设计，计算开销小。</div>
+      </div>
+      <div class="card">
+        <div style="margin-bottom: 8px;">
+          <span class="method-badge method-badge-reg">回归法</span>
+        </div>
+        <div class="card-title">TasselNet*</div>
+        <div class="card-desc">基于 ResNet-34 改进的局部计数回归网络，通过密度图预测实现计数。</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== SLIDE 6: DETECTION METHODS ==================== -->
+  <div class="slide" data-index="5">
+    <div class="glow glow-light" style="top: -30px; right: -60px;"></div>
+    <div class="glow glow-blue glow-sm" style="bottom: 20px; left: 20%;"></div>
+
+    <div class="section-label anim">方法详解</div>
+    <h2 class="slide-title anim">检测法：从图像到边界框</h2>
+
+    <div class="two-col">
+      <div class="flex-col">
+        <div class="card anim finding-card">
+          <div class="card-title">两阶段检测器</div>
+          <div class="card-desc" style="margin-top: 6px;">
+            <strong>Faster R-CNN</strong>：先生成候选区域（RPN），再对每个候选区域进行分类和回归。精度高但推理速度较慢，适合对精度要求高的场景。
+          </div>
+        </div>
+        <div class="card anim finding-card">
+          <div class="card-title">单阶段检测器</div>
+          <div class="card-desc" style="margin-top: 6px;">
+            <strong>RetinaNet</strong>：引入 Focal Loss 解决正负样本极度不平衡问题。<br>
+            <strong>YOLOv3</strong>：将检测视为回归问题，一次前向传播完成检测。<br>
+            <strong>FaceBoxes</strong>：轻量级设计，追求极致推理速度。
+          </div>
+        </div>
+      </div>
+      <div class="flex-col">
+        <div class="highlight-bar anim">
+          <div class="bar-title">检测法的优势</div>
+          <div class="bar-text">输出每个目标的边界框，可获取位置、大小等额外信息，便于后续分析。</div>
+        </div>
+        <div class="highlight-bar anim" style="border-left-color: var(--secondary);">
+          <div class="bar-title" style="color: var(--secondary);">检测法的局限</div>
+          <div class="bar-text">在目标密集、严重遮挡的场景中容易产生漏检，导致计数偏低。</div>
+        </div>
+        <div class="card anim">
+          <div class="card-title">骨干网络</div>
+          <div class="card-desc">
+            <span class="badge badge-blue" style="margin: 2px;">ResNet-34</span>
+            <span class="badge badge-blue" style="margin: 2px;">FPN</span>
+            <span class="badge badge-blue" style="margin: 2px;">DarkNet-53</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== SLIDE 7: REGRESSION METHOD ==================== -->
+  <div class="slide" data-index="6">
+    <div class="glow glow-blue" style="bottom: -40px; left: -50px;"></div>
+
+    <div class="section-label anim">方法详解</div>
+    <h2 class="slide-title anim">回归法：TasselNet*</h2>
+
+    <div class="two-col">
+      <div class="flex-col">
+        <div class="card anim" style="padding: clamp(18px, 2.5vw, 32px);">
+          <div class="card-title" style="font-size: clamp(1rem, 1.4vw, 1.2rem); margin-bottom: 12px;">核心思想</div>
+          <div class="card-desc" style="line-height: 1.8;">
+            TasselNet* 将计数问题转化为<strong>密度图回归</strong>问题。网络以图像局部块（patch）为输入，预测每个像素的密度值，通过对密度图求和得到最终计数。
+          </div>
+        </div>
+
+        <div class="steps anim" style="margin-top: 0.5rem;">
+          <div class="step">
+            <div class="step-number">1</div>
+            <div class="step-text">图像分块<br>提取局部 patch</div>
+          </div>
+          <div class="step">
+            <div class="step-number">2</div>
+            <div class="step-text">ResNet-34<br>特征提取</div>
+          </div>
+          <div class="step">
+            <div class="step-number">3</div>
+            <div class="step-text">密度图<br>预测回归</div>
+          </div>
+          <div class="step">
+            <div class="step-number">4</div>
+            <div class="step-text">积分求和<br>输出计数</div>
+          </div>
+        </div>
+      </div>
+      <div class="flex-col">
+        <div class="highlight-bar anim">
+          <div class="bar-title">TasselNet* 的改进</div>
+          <div class="bar-text">在原始 TasselNet 基础上进行了多项改进，包括更优的密度图生成策略和损失函数设计。</div>
+        </div>
+        <div class="card anim">
+          <div class="card-title">回归法的特点</div>
+          <ul class="bullet-list" style="margin-top: 8px;">
+            <li>无需标注边界框，仅需点标注即可训练</li>
+            <li>收敛速度显著快于检测法</li>
+            <li>推理速度更快，适合实时应用</li>
+            <li>在拥挤场景中表现更稳定</li>
+          </ul>
+        </div>
+        <div class="card anim">
+          <div class="card-title">回归法的局限</div>
+          <div class="card-desc">无法提供个体的位置和大小信息，对尺度变化的鲁棒性相对较弱。</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== SLIDE 8: EVALUATION METRICS ==================== -->
+  <div class="slide" data-index="7">
+    <div class="glow glow-light glow-sm" style="top: 10px; right: -30px;"></div>
+
+    <div class="section-label anim">评估体系</div>
+    <h2 class="slide-title anim">评估指标与方法</h2>
+
+    <div class="card-grid card-grid-3 anim" style="margin-bottom: 1.2rem;">
+      <div class="card metric-card">
+        <div class="metric-value" style="font-size: clamp(1.2rem, 2vw, 1.6rem);">MAE</div>
+        <div class="metric-label">平均绝对误差</div>
+        <div class="card-desc" style="margin-top: 6px; font-size: clamp(0.68rem, 0.82vw, 0.76rem);">衡量预测值与真实值的平均偏差程度</div>
+      </div>
+      <div class="card metric-card">
+        <div class="metric-value" style="font-size: clamp(1.2rem, 2vw, 1.6rem);">MSE</div>
+        <div class="metric-label">均方误差</div>
+        <div class="card-desc" style="margin-top: 6px; font-size: clamp(0.68rem, 0.82vw, 0.76rem);">对较大误差给予更高惩罚</div>
+      </div>
+      <div class="card metric-card">
+        <div class="metric-value" style="font-size: clamp(1.2rem, 2vw, 1.6rem);">rRMSE</div>
+        <div class="metric-label">相对均方根误差</div>
+        <div class="card-desc" style="margin-top: 6px; font-size: clamp(0.68rem, 0.82vw, 0.76rem);">消除量纲影响的标准化误差</div>
+      </div>
+    </div>
+
+    <div class="card-grid card-grid-2 anim">
+      <div class="card metric-card">
+        <div class="metric-value" style="font-size: clamp(1.2rem, 2vw, 1.6rem);">mAP</div>
+        <div class="metric-label">平均精度均值</div>
+        <div class="card-desc" style="margin-top: 6px; font-size: clamp(0.68rem, 0.82vw, 0.76rem);">检测法专用指标，综合衡量检测精度与召回率</div>
+      </div>
+      <div class="card metric-card">
+        <div class="metric-value" style="font-size: clamp(1.2rem, 2vw, 1.6rem);">fps</div>
+        <div class="metric-label">每秒帧数</div>
+        <div class="card-desc" style="margin-top: 6px; font-size: clamp(0.68rem, 0.82vw, 0.76rem);">衡量推理速度，评估实际部署可行性</div>
+      </div>
+    </div>
+
+    <div class="highlight-bar anim" style="margin-top: 1rem;">
+      <div class="bar-title">评估维度</div>
+      <div class="bar-text">从计数精度（MAE/MSE/rRMSE）、检测质量（mAP）、推理效率（fps）、置信度鲁棒性、尺度鲁棒性等多个维度进行全面比较。</div>
+    </div>
+  </div>
+
+  <!-- ==================== SLIDE 9: RESULTS ==================== -->
+  <div class="slide" data-index="8">
+    <div class="glow glow-blue" style="top: -40px; left: -40px;"></div>
+    <div class="glow glow-light glow-sm" style="bottom: 10px; right: -20px;"></div>
+
+    <div class="section-label anim">实验结果</div>
+    <h2 class="slide-title anim">定量比较结果</h2>
+
+    <div class="anim" style="overflow-x: auto;">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>方法</th>
+            <th>类型</th>
+            <th>MAE</th>
+            <th>MSE</th>
+            <th>rRMSE (%)</th>
+            <th>R&sup2;</th>
+            <th>速度 (fps)</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>Faster R-CNN</strong></td>
+            <td><span class="method-badge method-badge-det">检测</span></td>
+            <td>3.49</td>
+            <td>20.42</td>
+            <td>20.6</td>
+            <td class="best">0.95</td>
+            <td>18.2</td>
+          </tr>
+          <tr>
+            <td><strong>RetinaNet</strong></td>
+            <td><span class="method-badge method-badge-det">检测</span></td>
+            <td>3.82</td>
+            <td>22.15</td>
+            <td>21.5</td>
+            <td>0.94</td>
+            <td>22.7</td>
+          </tr>
+          <tr>
+            <td><strong>YOLOv3</strong></td>
+            <td><span class="method-badge method-badge-det">检测</span></td>
+            <td>4.16</td>
+            <td>25.88</td>
+            <td>23.3</td>
+            <td>0.93</td>
+            <td>39.5</td>
+          </tr>
+          <tr>
+            <td><strong>FaceBoxes</strong></td>
+            <td><span class="method-badge method-badge-det">检测</span></td>
+            <td>5.07</td>
+            <td>34.61</td>
+            <td>27.0</td>
+            <td>0.91</td>
+            <td class="best">122.3</td>
+          </tr>
+          <tr>
+            <td><strong>TasselNet*</strong></td>
+            <td><span class="method-badge method-badge-reg">回归</span></td>
+            <td class="best">2.65</td>
+            <td class="best">12.31</td>
+            <td class="best">16.0</td>
+            <td class="best">0.96</td>
+            <td>65.8</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="highlight-bar anim" style="margin-top: 1rem;">
+      <div class="bar-title">总体结论</div>
+      <div class="bar-text">所有方法的 R&sup2; &ge; 0.85，rRMSE &le; 28.2%，表明深度学习方法在玉米雄穗计数任务上均能达到较高精度。TasselNet* 在计数精度和速度上均表现最优。</div>
+    </div>
+  </div>
+
+  <!-- ==================== SLIDE 10: KEY FINDINGS ==================== -->
+  <div class="slide" data-index="9">
+    <div class="glow glow-light" style="top: -30px; right: -50px;"></div>
+
+    <div class="section-label anim">核心发现</div>
+    <h2 class="slide-title anim">关键发现</h2>
+
+    <div class="card-grid card-grid-2 anim">
+      <div class="card finding-card">
+        <div class="card-title"><span class="finding-num">1</span> 整体精度</div>
+        <div class="card-desc" style="margin-top: 6px;">所有方法 R&sup2; &ge; 0.85，rRMSE &le; 28.2%，深度学习在雄穗计数任务上表现可靠。</div>
+      </div>
+      <div class="card finding-card">
+        <div class="card-title"><span class="finding-num">2</span> 置信度鲁棒性</div>
+        <div class="card-desc" style="margin-top: 6px;">Faster R-CNN 对置信度阈值的变化更加鲁棒，实际应用中调参更简单。</div>
+      </div>
+      <div class="card finding-card">
+        <div class="card-title"><span class="finding-num">3</span> 收敛速度</div>
+        <div class="card-desc" style="margin-top: 6px;">回归法（TasselNet*）收敛速度显著快于检测法，训练效率更高。</div>
+      </div>
+      <div class="card finding-card">
+        <div class="card-title"><span class="finding-num">4</span> 推理速度</div>
+        <div class="card-desc" style="margin-top: 6px;">回归法推理速度更快；检测法可推断额外信息（位置、大小），提供更丰富的输出。</div>
+      </div>
+      <div class="card finding-card">
+        <div class="card-title"><span class="finding-num">5</span> 拥挤场景</div>
+        <div class="card-desc" style="margin-top: 6px;">检测法在目标密集、严重遮挡的拥挤场景中容易产生漏检，导致计数偏低。</div>
+      </div>
+      <div class="card finding-card">
+        <div class="card-title"><span class="finding-num">6</span> 尺度鲁棒性</div>
+        <div class="card-desc" style="margin-top: 6px;">检测法对目标尺度变化更加鲁棒，在不同生长阶段表现更稳定。</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== SLIDE 11: FUTURE DIRECTIONS ==================== -->
+  <div class="slide" data-index="10">
+    <div class="glow glow-blue glow-sm" style="top: 20px; left: -40px;"></div>
+    <div class="glow glow-light" style="bottom: -30px; right: -30px;"></div>
+
+    <div class="section-label anim">改进方向</div>
+    <h2 class="slide-title anim">未来研究展望</h2>
+
+    <div class="three-col">
+      <div class="flex-col">
+        <div class="card anim improve-card">
+          <div class="improve-icon">&#9881;</div>
+          <div>
+            <div class="card-title">轻量级网络设计</div>
+            <div class="card-desc">设计轻量级网络架构，实现在 CPU 端的高效运行，降低部署门槛。</div>
+          </div>
+        </div>
+        <div class="card anim improve-card">
+          <div class="improve-icon">&#8693;</div>
+          <div>
+            <div class="card-title">信息融合</div>
+            <div class="card-desc">融合局部和全局信息改进回归法，提升对不同密度场景的适应能力。</div>
+          </div>
+        </div>
+      </div>
+      <div class="flex-col">
+        <div class="card anim improve-card">
+          <div class="improve-icon">&#9733;</div>
+          <div>
+            <div class="card-title">联合检测与回归</div>
+            <div class="card-desc">联合检测和回归算法，同时获得计数精度和个体位置信息。</div>
+          </div>
+        </div>
+        <div class="card anim improve-card">
+          <div class="improve-icon">&#9878;</div>
+          <div>
+            <div class="card-title">场景自适应</div>
+            <div class="card-desc">拥挤场景优先使用回归法，尺度变化大时使用检测法，实现动态策略选择。</div>
+          </div>
+        </div>
+      </div>
+      <div class="flex-col">
+        <div class="card anim improve-card">
+          <div class="improve-icon">&#9783;</div>
+          <div>
+            <div class="card-title">数据合成增强</div>
+            <div class="card-desc">利用数据合成技术增强训练数据，提升模型在稀缺标注下的表现。</div>
+          </div>
+        </div>
+        <div class="card anim improve-card">
+          <div class="improve-icon">&#8644;</div>
+          <div>
+            <div class="card-title">域适应</div>
+            <div class="card-desc">通过域适应方法填补不同时间序列和实验田之间的分布差异。</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== SLIDE 12: CONCLUSION ==================== -->
+  <div class="slide" data-index="11">
+    <div class="glow glow-blue" style="top: -60px; right: 10%;"></div>
+    <div class="glow glow-light glow-sm" style="bottom: 40px; left: 5%;"></div>
+
+    <div class="section-label anim">总结</div>
+    <h2 class="slide-title anim">结论</h2>
+
+    <div class="conclusion-highlight anim" style="margin-bottom: 1.5rem;">
+      <h3>检测法与回归法都能达到较高精度</h3>
+      <p>选择方法需综合考虑精度、鲁棒性、速度和应用场景等多方面因素。<br>没有一种方法在所有维度上都是最优的。</p>
+    </div>
+
+    <div class="card-grid card-grid-2 anim" style="margin-bottom: 1.2rem;">
+      <div class="card">
+        <div class="card-title" style="color: var(--title);">检测法适用场景</div>
+        <ul class="bullet-list" style="margin-top: 8px;">
+          <li>需要获取个体位置和大小信息</li>
+          <li>目标尺度变化较大的场景</li>
+          <li>对置信度鲁棒性要求高</li>
+        </ul>
+      </div>
+      <div class="card">
+        <div class="card-title" style="color: var(--emphasis);">回归法适用场景</div>
+        <ul class="bullet-list" style="margin-top: 8px;">
+          <li>仅需计数结果，不需要个体信息</li>
+          <li>目标密集、遮挡严重的场景</li>
+          <li>对推理速度和训练效率要求高</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="highlight-bar anim">
+      <div class="bar-title">MTDC 数据集公开可用</div>
+      <div class="bar-text">https://git.io/MTDC &mdash; 欢迎研究者使用和对比，共同推动植物计数领域的发展。</div>
+    </div>
+  </div>
+
+</div><!-- /.presentation -->
+
+<!-- Controls -->
+<div class="controls">
+  <button class="btn-nav" id="btnPrev" aria-label="上一页">&#8249;</button>
+  <span class="page-counter" id="pageCounter">1 / 12</span>
+  <button class="btn-nav" id="btnNext" aria-label="下一页">&#8250;</button>
+</div>
+
+<script>
+(function() {
+  'use strict';
+
+  const slides = document.querySelectorAll('.slide');
+  const totalSlides = slides.length;
+  let currentIndex = 0;
+
+  const progressBar = document.getElementById('progressBar');
+  const pageCounter = document.getElementById('pageCounter');
+  const btnPrev = document.getElementById('btnPrev');
+  const btnNext = document.getElementById('btnNext');
+  const navDotsContainer = document.getElementById('navDots');
+
+  // Create nav dots
+  for (let i = 0; i < totalSlides; i++) {
+    const dot = document.createElement('button');
+    dot.classList.add('nav-dot');
+    dot.setAttribute('aria-label', '跳转到第 ' + (i + 1) + ' 页');
+    dot.dataset.index = i;
+    if (i === 0) dot.classList.add('active');
+    dot.addEventListener('click', function() {
+      goToSlide(parseInt(this.dataset.index));
+    });
+    navDotsContainer.appendChild(dot);
+  }
+
+  const navDots = document.querySelectorAll('.nav-dot');
+
+  function updateUI() {
+    // Progress bar
+    const progress = ((currentIndex + 1) / totalSlides) * 100;
+    progressBar.style.width = progress + '%';
+
+    // Page counter
+    pageCounter.textContent = (currentIndex + 1) + ' / ' + totalSlides;
+
+    // Nav dots
+    navDots.forEach(function(dot, i) {
+      if (i === currentIndex) {
+        dot.classList.add('active');
+      } else {
+        dot.classList.remove('active');
+      }
+    });
+
+    // Button states
+    btnPrev.disabled = currentIndex === 0;
+    btnNext.disabled = currentIndex === totalSlides - 1;
+  }
+
+  function goToSlide(newIndex) {
+    if (newIndex < 0 || newIndex >= totalSlides || newIndex === currentIndex) return;
+
+    const direction = newIndex > currentIndex ? 'forward' : 'backward';
+    const oldSlide = slides[currentIndex];
+    const newSlide = slides[newIndex];
+
+    // Remove active from old slide, add exit animation
+    oldSlide.classList.remove('active');
+    oldSlide.classList.add('exit-up');
+
+    // Clean up exit class after transition
+    setTimeout(function() {
+      oldSlide.classList.remove('exit-up');
+    }, 500);
+
+    // Activate new slide
+    newSlide.classList.add('active');
+
+    currentIndex = newIndex;
+    updateUI();
+  }
+
+  function nextSlide() {
+    goToSlide(currentIndex + 1);
+  }
+
+  function prevSlide() {
+    goToSlide(currentIndex - 1);
+  }
+
+  // Button events
+  btnNext.addEventListener('click', nextSlide);
+  btnPrev.addEventListener('click', prevSlide);
+
+  // Keyboard navigation
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'ArrowRight' || e.key === 'ArrowDown' || e.key === ' ') {
+      e.preventDefault();
+      nextSlide();
+    } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+      e.preventDefault();
+      prevSlide();
+    } else if (e.key === 'Home') {
+      e.preventDefault();
+      goToSlide(0);
+    } else if (e.key === 'End') {
+      e.preventDefault();
+      goToSlide(totalSlides - 1);
+    }
+  });
+
+  // Touch support
+  let touchStartX = 0;
+  let touchStartY = 0;
+
+  document.addEventListener('touchstart', function(e) {
+    touchStartX = e.changedTouches[0].screenX;
+    touchStartY = e.changedTouches[0].screenY;
+  }, { passive: true });
+
+  document.addEventListener('touchend', function(e) {
+    const deltaX = e.changedTouches[0].screenX - touchStartX;
+    const deltaY = e.changedTouches[0].screenY - touchStartY;
+
+    if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > 50) {
+      if (deltaX < 0) {
+        nextSlide();
+      } else {
+        prevSlide();
+      }
+    }
+  }, { passive: true });
+
+  // Initialize
+  updateUI();
+})();
+</script>
+
+</body>
+</html>

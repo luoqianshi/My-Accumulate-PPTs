@@ -1,0 +1,1583 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="icon" href="../assets/favicon.png" type="image/png" />
+<title>RT-DETR: DETRs Beat YOLOs on Real-time Object Detection</title>
+<style>
+/* ========== RESET & BASE ========== */
+*, *::before, *::after {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html, body {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  font-family: 'Inter', 'Noto Sans SC', -apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  background: #ffffff;
+  color: #000000;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ========== SLIDE CONTAINER ========== */
+.presentation {
+  width: 100%;
+  height: 100%;
+  position: relative;
+  overflow: hidden;
+}
+
+.slide {
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%;
+  height: 100%;
+  padding: 5vh 7vw;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(20px);
+  transition: opacity 0.6s cubic-bezier(0.4,0,0.2,1),
+              visibility 0.6s cubic-bezier(0.4,0,0.2,1),
+              transform 0.6s cubic-bezier(0.4,0,0.2,1);
+  z-index: 1;
+}
+
+.slide.active {
+  opacity: 1 !important;
+  visibility: visible !important;
+  transform: translateY(0) !important;
+  z-index: 10;
+}
+
+.slide.exit-up {
+  opacity: 0 !important;
+  visibility: hidden !important;
+  transform: translateY(-20px) !important;
+}
+
+/* ========== PROGRESS BAR ========== */
+.progress-bar {
+  position: fixed;
+  top: 0; left: 0;
+  height: 3px;
+  background: linear-gradient(90deg, #3966A2, #6191D3);
+  transition: width 0.4s cubic-bezier(0.4,0,0.2,1);
+  z-index: 100;
+  border-radius: 0 2px 2px 0;
+}
+
+/* ========== BOTTOM CONTROLS ========== */
+.controls {
+  position: fixed;
+  bottom: 2.5vh;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  z-index: 100;
+}
+
+.controls button {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 1.5px solid #3966A2;
+  background: #ffffff;
+  color: #3966A2;
+  font-size: 1.1rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.25s ease;
+}
+
+.controls button:hover {
+  background: #3966A2;
+  color: #ffffff;
+}
+
+.controls button:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.controls button:disabled:hover {
+  background: #ffffff;
+  color: #3966A2;
+}
+
+.page-counter {
+  font-size: 0.85rem;
+  color: #6191D3;
+  font-weight: 500;
+  min-width: 60px;
+  text-align: center;
+}
+
+/* ========== RIGHT DOTS ========== */
+.dots-nav {
+  position: fixed;
+  right: 1.5vw;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  z-index: 100;
+}
+
+.dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #d0d8e8;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.dot.active {
+  background: #3966A2;
+  transform: scale(1.4);
+}
+
+.dot:hover {
+  background: #6191D3;
+}
+
+/* ========== TYPOGRAPHY ========== */
+.slide-title {
+  font-size: clamp(1.6rem, 3.2vw, 2.6rem);
+  font-weight: 800;
+  color: #3966A2;
+  margin-bottom: 3vh;
+  line-height: 1.3;
+}
+
+.slide-subtitle {
+  font-size: clamp(0.95rem, 1.6vw, 1.25rem);
+  color: #6191D3;
+  font-weight: 500;
+  margin-bottom: 2vh;
+  line-height: 1.6;
+}
+
+.text-accent {
+  color: #132843;
+  font-weight: 700;
+}
+
+.text-secondary {
+  color: #6191D3;
+}
+
+.text-muted {
+  color: #8a9bb5;
+  font-size: 0.9em;
+}
+
+/* ========== ANIMATIONS ========== */
+.anim {
+  opacity: 0;
+  transform: translateY(16px);
+  transition: opacity 0.5s cubic-bezier(0.4,0,0.2,1),
+              transform 0.5s cubic-bezier(0.4,0,0.2,1);
+}
+
+.slide.active .anim {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.slide.active .anim:nth-child(1) { transition-delay: 0.08s; }
+.slide.active .anim:nth-child(2) { transition-delay: 0.16s; }
+.slide.active .anim:nth-child(3) { transition-delay: 0.24s; }
+.slide.active .anim:nth-child(4) { transition-delay: 0.32s; }
+.slide.active .anim:nth-child(5) { transition-delay: 0.40s; }
+.slide.active .anim:nth-child(6) { transition-delay: 0.48s; }
+.slide.active .anim:nth-child(7) { transition-delay: 0.56s; }
+.slide.active .anim:nth-child(8) { transition-delay: 0.64s; }
+
+/* ========== BADGE ========== */
+.badge {
+  display: inline-block;
+  padding: 0.3em 0.9em;
+  border-radius: 20px;
+  font-size: clamp(0.7rem, 1vw, 0.85rem);
+  font-weight: 600;
+  background: rgba(57, 102, 162, 0.1);
+  color: #3966A2;
+  border: 1px solid rgba(57, 102, 162, 0.2);
+}
+
+.badge-dark {
+  background: #132843;
+  color: #ffffff;
+  border-color: #132843;
+}
+
+/* ========== COVER TAG ========== */
+.cover-tag {
+  display: inline-block;
+  padding: 0.35em 1em;
+  border-radius: 20px;
+  font-size: clamp(0.75rem, 1.1vw, 0.9rem);
+  font-weight: 600;
+  background: rgba(57, 102, 162, 0.08);
+  color: #3966A2;
+  border: 1px solid rgba(57, 102, 162, 0.15);
+  margin-right: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+/* ========== CARD ========== */
+.card {
+  background: #f7f9fc;
+  border-radius: 12px;
+  padding: clamp(1rem, 2vw, 1.6rem);
+  border: 1px solid rgba(57, 102, 162, 0.08);
+}
+
+.card-grid {
+  display: grid;
+  gap: clamp(0.8rem, 1.5vw, 1.2rem);
+}
+
+.card-grid-2 { grid-template-columns: 1fr 1fr; }
+.card-grid-3 { grid-template-columns: 1fr 1fr 1fr; }
+.card-grid-4 { grid-template-columns: 1fr 1fr 1fr 1fr; }
+
+.card-title {
+  font-size: clamp(0.85rem, 1.3vw, 1.05rem);
+  font-weight: 700;
+  color: #132843;
+  margin-bottom: 0.5em;
+}
+
+.card-text {
+  font-size: clamp(0.75rem, 1.1vw, 0.9rem);
+  color: #333;
+  line-height: 1.6;
+}
+
+/* ========== HIGHLIGHT BAR ========== */
+.highlight-bar {
+  background: linear-gradient(135deg, rgba(57, 102, 162, 0.08), rgba(97, 145, 211, 0.08));
+  border-left: 4px solid #3966A2;
+  border-radius: 0 8px 8px 0;
+  padding: clamp(0.8rem, 1.5vw, 1.2rem) clamp(1rem, 2vw, 1.5rem);
+  margin: 1vh 0;
+}
+
+.highlight-bar strong {
+  color: #132843;
+}
+
+/* ========== BULLET LIST ========== */
+.bullet-list {
+  list-style: none;
+  padding: 0;
+}
+
+.bullet-list li {
+  position: relative;
+  padding-left: 1.4em;
+  margin-bottom: 0.6em;
+  font-size: clamp(0.8rem, 1.2vw, 0.95rem);
+  line-height: 1.6;
+  color: #222;
+}
+
+.bullet-list li::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0.55em;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #3966A2;
+}
+
+.bullet-list li.accent::before {
+  background: #132843;
+  width: 7px;
+  height: 7px;
+}
+
+/* ========== STEPS ========== */
+.steps {
+  display: flex;
+  align-items: flex-start;
+  gap: clamp(0.5rem, 1.5vw, 1.2rem);
+  margin: 1vh 0;
+}
+
+.step {
+  flex: 1;
+  text-align: center;
+  position: relative;
+}
+
+.step-num {
+  width: clamp(32px, 3vw, 42px);
+  height: clamp(32px, 3vw, 42px);
+  border-radius: 50%;
+  background: #3966A2;
+  color: #ffffff;
+  font-weight: 700;
+  font-size: clamp(0.8rem, 1.2vw, 1rem);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 0.5em;
+}
+
+.step-label {
+  font-size: clamp(0.7rem, 1vw, 0.85rem);
+  font-weight: 600;
+  color: #132843;
+  line-height: 1.4;
+}
+
+.step-desc {
+  font-size: clamp(0.65rem, 0.9vw, 0.78rem);
+  color: #6191D3;
+  margin-top: 0.3em;
+  line-height: 1.4;
+}
+
+.step-arrow {
+  font-size: clamp(1rem, 1.5vw, 1.4rem);
+  color: #6191D3;
+  padding-top: clamp(10px, 1.2vw, 16px);
+  flex-shrink: 0;
+}
+
+/* ========== GLOW ========== */
+.glow {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(80px);
+  opacity: 0.35;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.glow-blue {
+  width: clamp(200px, 30vw, 400px);
+  height: clamp(200px, 30vw, 400px);
+  background: rgba(97, 145, 211, 0.3);
+}
+
+.glow-purple {
+  width: clamp(180px, 25vw, 350px);
+  height: clamp(180px, 25vw, 350px);
+  background: rgba(57, 102, 162, 0.25);
+}
+
+.glow-yellow {
+  width: clamp(150px, 20vw, 280px);
+  height: clamp(150px, 20vw, 280px);
+  background: rgba(255, 200, 87, 0.2);
+}
+
+/* ========== QUOTE BLOCK ========== */
+.quote-block {
+  border-left: 3px solid #6191D3;
+  padding: 0.8em 1.2em;
+  background: rgba(97, 145, 211, 0.05);
+  border-radius: 0 8px 8px 0;
+  font-style: italic;
+  color: #132843;
+  font-size: clamp(0.85rem, 1.2vw, 1rem);
+  line-height: 1.6;
+}
+
+/* ========== TABLE ========== */
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: clamp(0.72rem, 1vw, 0.88rem);
+}
+
+.data-table th {
+  background: #3966A2;
+  color: #ffffff;
+  padding: 0.6em 1em;
+  text-align: center;
+  font-weight: 600;
+}
+
+.data-table th:first-child {
+  border-radius: 8px 0 0 0;
+}
+
+.data-table th:last-child {
+  border-radius: 0 8px 0 0;
+}
+
+.data-table td {
+  padding: 0.55em 1em;
+  text-align: center;
+  border-bottom: 1px solid rgba(57, 102, 162, 0.1);
+  color: #222;
+}
+
+.data-table tr:nth-child(even) td {
+  background: rgba(57, 102, 162, 0.03);
+}
+
+.data-table tr.highlight-row td {
+  background: rgba(57, 102, 162, 0.08);
+  font-weight: 600;
+  color: #132843;
+}
+
+/* ========== FLOW DIAGRAM ========== */
+.flow-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(0.4rem, 1vw, 0.8rem);
+  margin: 1.5vh 0;
+  flex-wrap: wrap;
+}
+
+.flow-box {
+  padding: clamp(0.5em, 1vw, 0.8em) clamp(1em, 1.8vw, 1.5em);
+  border-radius: 8px;
+  font-size: clamp(0.72rem, 1vw, 0.88rem);
+  font-weight: 600;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.flow-box-primary {
+  background: #3966A2;
+  color: #ffffff;
+}
+
+.flow-box-accent {
+  background: #132843;
+  color: #ffffff;
+}
+
+.flow-box-light {
+  background: rgba(57, 102, 162, 0.1);
+  color: #3966A2;
+  border: 1px solid rgba(57, 102, 162, 0.2);
+}
+
+.flow-arrow {
+  color: #6191D3;
+  font-size: clamp(1rem, 1.5vw, 1.4rem);
+  flex-shrink: 0;
+}
+
+/* ========== METRIC ========== */
+.metric {
+  text-align: center;
+}
+
+.metric-value {
+  font-size: clamp(1.8rem, 3vw, 2.8rem);
+  font-weight: 800;
+  color: #3966A2;
+  line-height: 1.1;
+}
+
+.metric-label {
+  font-size: clamp(0.7rem, 1vw, 0.85rem);
+  color: #6191D3;
+  margin-top: 0.3em;
+  font-weight: 500;
+}
+
+/* ========== COVER SLIDE ========== */
+.cover-slide {
+  justify-content: center;
+  align-items: flex-start;
+  text-align: left;
+}
+
+.cover-slide .slide-title {
+  font-size: clamp(2rem, 4vw, 3.2rem);
+  margin-bottom: 1.5vh;
+  line-height: 1.2;
+}
+
+.cover-slide .slide-subtitle {
+  font-size: clamp(1rem, 1.8vw, 1.4rem);
+  margin-bottom: 2.5vh;
+}
+
+.cover-tags {
+  margin-bottom: 3vh;
+}
+
+.cover-author {
+  font-size: clamp(0.8rem, 1.2vw, 0.95rem);
+  color: #6191D3;
+  font-weight: 500;
+}
+
+/* ========== TWO COLUMN ========== */
+.two-col {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: clamp(1.5rem, 3vw, 2.5rem);
+  align-items: start;
+}
+
+.three-col {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: clamp(1rem, 2vw, 1.5rem);
+  align-items: start;
+}
+
+/* ========== FORMULA ========== */
+.formula {
+  background: rgba(19, 40, 67, 0.05);
+  border: 1px solid rgba(57, 102, 162, 0.12);
+  border-radius: 8px;
+  padding: 0.8em 1.5em;
+  font-family: 'Courier New', monospace;
+  font-size: clamp(0.85rem, 1.2vw, 1.05rem);
+  color: #132843;
+  text-align: center;
+  margin: 1vh 0;
+  font-weight: 600;
+}
+
+/* ========== COMPARISON ========== */
+.compare-row {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  gap: 1rem;
+  align-items: center;
+  margin: 0.8vh 0;
+}
+
+.compare-cell {
+  padding: 0.8em 1em;
+  border-radius: 8px;
+  font-size: clamp(0.75rem, 1.1vw, 0.9rem);
+  line-height: 1.5;
+}
+
+.compare-cell.left {
+  background: rgba(255, 107, 107, 0.06);
+  border: 1px solid rgba(255, 107, 107, 0.15);
+  text-align: right;
+}
+
+.compare-cell.right {
+  background: rgba(76, 175, 80, 0.06);
+  border: 1px solid rgba(76, 175, 80, 0.15);
+}
+
+.compare-vs {
+  font-weight: 800;
+  color: #6191D3;
+  font-size: clamp(0.9rem, 1.3vw, 1.1rem);
+}
+
+/* ========== SECTION LABEL ========== */
+.section-label {
+  font-size: clamp(0.7rem, 0.9vw, 0.8rem);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #6191D3;
+  margin-bottom: 0.5em;
+}
+
+/* ========== RESPONSIVE ========== */
+@media (max-width: 900px) {
+  .card-grid-2, .card-grid-3, .card-grid-4, .two-col, .three-col {
+    grid-template-columns: 1fr;
+  }
+  .compare-row {
+    grid-template-columns: 1fr;
+  }
+  .compare-vs { display: none; }
+  .steps { flex-direction: column; }
+  .step-arrow { transform: rotate(90deg); }
+}
+</style>
+</head>
+<body>
+
+<div class="presentation" id="presentation">
+
+  <!-- ==================== SLIDE 1: COVER ==================== -->
+  <div class="slide cover-slide active" data-index="0">
+    <div class="glow glow-blue" style="top: -10%; right: -5%;"></div>
+    <div class="glow glow-purple" style="bottom: -10%; left: -5%;"></div>
+    <div class="anim">
+      <div class="cover-tags">
+        <span class="cover-tag">CVPR 2024</span>
+        <span class="cover-tag">百度 &amp; 北京大学</span>
+      </div>
+    </div>
+    <h1 class="slide-title anim">DETRs Beat YOLOs on<br>Real-time Object Detection</h1>
+    <p class="slide-subtitle anim">首个实时端到端目标检测器 RT-DETR</p>
+    <div class="anim">
+      <div class="highlight-bar" style="max-width: 600px;">
+        <strong>核心贡献：</strong>首次将 DETR 系列扩展到实时场景，在速度和精度上全面超越 YOLO 系列，消除 NMS 后处理依赖。
+      </div>
+    </div>
+    <p class="cover-author anim">Yian Zhao, Wenyu Lv et al.</p>
+  </div>
+
+  <!-- ==================== SLIDE 2: 研究背景与动机 ==================== -->
+  <div class="slide" data-index="1">
+    <div class="glow glow-blue" style="top: -15%; right: 10%;"></div>
+    <h2 class="slide-title anim">研究背景与动机</h2>
+    <div class="two-col">
+      <div>
+        <div class="anim">
+          <div class="card" style="margin-bottom: 1.2vh;">
+            <div class="card-title">YOLO 系列现状</div>
+            <ul class="bullet-list">
+              <li>实时目标检测的<span class="text-accent">主流框架</span></li>
+              <li>依赖 <span class="text-accent">NMS 后处理</span>去除重复检测框</li>
+              <li>架构成熟，生态丰富，应用广泛</li>
+            </ul>
+          </div>
+        </div>
+        <div class="anim">
+          <div class="card" style="margin-bottom: 1.2vh;">
+            <div class="card-title">DETR 系列现状</div>
+            <ul class="bullet-list">
+              <li>提供<span class="text-accent">端到端</span>替代方案</li>
+              <li>基于 Transformer 架构，无需 NMS</li>
+              <li>计算成本高，<span class="text-accent">无法满足实时需求</span></li>
+            </ul>
+          </div>
+        </div>
+      </div>
+      <div>
+        <div class="anim">
+          <div class="card" style="border-left: 4px solid #ff6b6b; margin-bottom: 1.2vh;">
+            <div class="card-title" style="color: #c0392b;">NMS 的核心问题</div>
+            <ul class="bullet-list">
+              <li class="accent">降低推理速度，成为部署瓶颈</li>
+              <li class="accent">引入超参数（置信度阈值、IoU 阈值）</li>
+              <li class="accent">超参数选择导致结果不稳定</li>
+              <li class="accent">难以在嵌入式设备上高效部署</li>
+            </ul>
+          </div>
+        </div>
+        <div class="anim">
+          <div class="quote-block">
+            能否将 DETR 扩展到实时场景，在速度和精度上超越 YOLO？
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== SLIDE 3: NMS影响分析 ==================== -->
+  <div class="slide" data-index="2">
+    <div class="glow glow-purple" style="bottom: -10%; left: 5%;"></div>
+    <h2 class="slide-title anim">NMS 影响分析</h2>
+    <div class="two-col">
+      <div>
+        <div class="anim">
+          <div class="card" style="margin-bottom: 1.5vh;">
+            <div class="card-title">NMS 执行时间影响因素</div>
+            <ul class="bullet-list">
+              <li>执行时间取决于<span class="text-accent">预测框数量</span>和<span class="text-accent">两个阈值</span></li>
+              <li><strong>低置信度阈值</strong> → 更多框 → 更长 NMS 时间</li>
+              <li><strong>高 IoU 阈值</strong> → 每轮筛选更少框 → 更长 NMS 时间</li>
+            </ul>
+          </div>
+        </div>
+        <div class="anim">
+          <div class="highlight-bar">
+            <strong>YOLOv8 最佳精度配置：</strong>Conf = 0.001, IoU = 0.7 时，NMS 时间显著增加，成为端到端延迟的主要来源。
+          </div>
+        </div>
+        <div class="anim">
+          <div class="card">
+            <div class="card-title">端到端速度基准</div>
+            <p class="card-text">论文建立了 <span class="text-accent">End-to-end Speed Benchmark</span>，将 NMS 时间纳入推理延迟计算，公平对比不同检测框架。</p>
+          </div>
+        </div>
+      </div>
+      <div>
+        <div class="anim">
+          <div class="card" style="background: rgba(19,40,67,0.03);">
+            <div class="card-title" style="text-align: center; margin-bottom: 1em;">NMS 时间 vs 阈值配置</div>
+            <div class="card-grid card-grid-2" style="gap: 0.8rem;">
+              <div style="text-align: center;">
+                <div class="metric-value" style="font-size: clamp(1.2rem, 2vw, 1.6rem);">2.1ms</div>
+                <div class="metric-label">Conf=0.25, IoU=0.45<br><span style="color: #999;">默认配置</span></div>
+              </div>
+              <div style="text-align: center;">
+                <div class="metric-value" style="font-size: clamp(1.2rem, 2vw, 1.6rem); color: #c0392b;">6.8ms</div>
+                <div class="metric-label">Conf=0.001, IoU=0.7<br><span style="color: #999;">最佳精度</span></div>
+              </div>
+            </div>
+            <div style="text-align: center; margin-top: 1em; font-size: clamp(0.72rem, 1vw, 0.85rem); color: #8a9bb5;">
+              NMS 时间增加 3.2 倍
+            </div>
+          </div>
+        </div>
+        <div class="anim">
+          <div class="card" style="margin-top: 1.5vh;">
+            <div class="card-title">关键结论</div>
+            <ul class="bullet-list">
+              <li>追求更高精度时，NMS 延迟<span class="text-accent">急剧增加</span></li>
+              <li>端到端延迟中 NMS 占比可达 <span class="text-accent">30%+</span></li>
+              <li>消除 NMS 是实现高效实时检测的关键</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== SLIDE 4: RT-DETR 整体架构 ==================== -->
+  <div class="slide" data-index="3">
+    <div class="glow glow-blue" style="top: -8%; left: 50%;"></div>
+    <div class="glow glow-yellow" style="bottom: -5%; right: 5%;"></div>
+    <h2 class="slide-title anim">RT-DETR 整体架构</h2>
+    <div class="anim">
+      <div class="flow-row" style="margin-bottom: 2vh;">
+        <div class="flow-box flow-box-light">输入图像</div>
+        <span class="flow-arrow">→</span>
+        <div class="flow-box flow-box-primary">Backbone<br><span style="font-size: 0.8em; font-weight: 400;">ResNet-50/101</span></div>
+        <span class="flow-arrow">→</span>
+        <div class="flow-box flow-box-accent">高效混合编码器<br><span style="font-size: 0.8em; font-weight: 400;">AIFI + CCFF</span></div>
+        <span class="flow-arrow">→</span>
+        <div class="flow-box flow-box-primary">查询选择<br><span style="font-size: 0.8em; font-weight: 400;">不确定性最小化</span></div>
+        <span class="flow-arrow">→</span>
+        <div class="flow-box flow-box-accent">Transformer 解码器</div>
+        <span class="flow-arrow">→</span>
+        <div class="flow-box flow-box-light">类别 + 边界框</div>
+      </div>
+    </div>
+    <div class="three-col">
+      <div class="anim">
+        <div class="card">
+          <div class="card-title">Backbone</div>
+          <ul class="bullet-list">
+            <li>提取多尺度特征</li>
+            <li>输出最后三个阶段特征</li>
+            <li><span class="text-accent">{S3, S4, S5}</span></li>
+            <li>S5 包含丰富语义信息</li>
+            <li>S3, S4 保留空间细节</li>
+          </ul>
+        </div>
+      </div>
+      <div class="anim">
+        <div class="card" style="border-top: 3px solid #3966A2;">
+          <div class="card-title">高效混合编码器</div>
+          <ul class="bullet-list">
+            <li><span class="text-accent">AIFI</span>：尺度内注意力交互</li>
+            <li>仅对 S5 使用 Transformer</li>
+            <li><span class="text-accent">CCFF</span>：CNN 跨尺度融合</li>
+            <li>基于 PANet 风格设计</li>
+            <li>解耦设计降低 35% 延迟</li>
+          </ul>
+        </div>
+      </div>
+      <div class="anim">
+        <div class="card">
+          <div class="card-title">Transformer 解码器</div>
+          <ul class="bullet-list">
+            <li>接收编码器输出特征</li>
+            <li>查询选择提供初始查询</li>
+            <li>迭代优化目标查询</li>
+            <li>生成<span class="text-accent">类别预测</span></li>
+            <li>生成<span class="text-accent">边界框预测</span></li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== SLIDE 5: 高效混合编码器 - 设计动机 ==================== -->
+  <div class="slide" data-index="4">
+    <div class="glow glow-purple" style="top: 5%; right: -5%;"></div>
+    <h2 class="slide-title anim">高效混合编码器 — 设计动机</h2>
+    <div class="two-col">
+      <div>
+        <div class="anim">
+          <div class="card" style="margin-bottom: 1.5vh;">
+            <div class="card-title">多尺度特征的矛盾</div>
+            <ul class="bullet-list">
+              <li>多尺度特征<span class="text-accent">加速训练收敛</span></li>
+              <li>但序列长度<span class="text-accent">急剧增加</span></li>
+              <li>编码器成为<span class="text-accent">计算瓶颈</span></li>
+            </ul>
+          </div>
+        </div>
+        <div class="anim">
+          <div class="highlight-bar">
+            <strong>关键数据：</strong>编码器占 GFLOPs 的 <span class="text-accent">49%</span>，但仅贡献 <span class="text-accent">11%</span> 的 AP。
+          </div>
+        </div>
+        <div class="anim">
+          <div class="card" style="margin-top: 1.5vh;">
+            <div class="card-title">核心发现</div>
+            <p class="card-text">同时对多尺度特征进行<span class="text-accent">尺度内</span>和<span class="text-accent">跨尺度</span>交互是低效的。</p>
+          </div>
+        </div>
+      </div>
+      <div>
+        <div class="anim">
+          <div class="compare-row">
+            <div class="compare-cell left">
+              <div style="font-weight: 700; color: #c0392b; margin-bottom: 0.3em;">高层特征 (S5)</div>
+              <div>包含丰富语义信息</div>
+              <div>尺度内交互<span style="color: #c0392b; font-weight: 600;">有价值</span></div>
+              <div>捕获概念实体间的连接</div>
+            </div>
+            <div class="compare-vs">vs</div>
+            <div class="compare-cell right">
+              <div style="font-weight: 700; color: #27ae60; margin-bottom: 0.3em;">低层特征 (S3, S4)</div>
+              <div>缺乏语义概念</div>
+              <div>尺度内交互<span style="color: #27ae60; font-weight: 600;">冗余</span></div>
+              <div>仅需跨尺度特征融合</div>
+            </div>
+          </div>
+        </div>
+        <div class="anim">
+          <div class="card" style="margin-top: 1.5vh; background: rgba(19,40,67,0.03);">
+            <div class="card-title" style="text-align: center;">设计原则</div>
+            <div class="steps">
+              <div class="step">
+                <div class="step-num">1</div>
+                <div class="step-label">高层用注意力</div>
+                <div class="step-desc">S5 → AIFI</div>
+              </div>
+              <div class="step-arrow">→</div>
+              <div class="step">
+                <div class="step-num">2</div>
+                <div class="step-label">低层用 CNN</div>
+                <div class="step-desc">S3,S4 → CCFF</div>
+              </div>
+              <div class="step-arrow">→</div>
+              <div class="step">
+                <div class="step-num">3</div>
+                <div class="step-label">解耦交互</div>
+                <div class="step-desc">降低计算成本</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== SLIDE 6: 高效混合编码器 - AIFI与CCFF ==================== -->
+  <div class="slide" data-index="5">
+    <div class="glow glow-blue" style="bottom: -10%; left: -3%;"></div>
+    <div class="glow glow-yellow" style="top: -5%; right: 10%;"></div>
+    <h2 class="slide-title anim">高效混合编码器 — AIFI 与 CCFF</h2>
+    <div class="two-col">
+      <div>
+        <div class="anim">
+          <div class="card" style="border-top: 3px solid #3966A2; margin-bottom: 1.5vh;">
+            <div class="card-title">AIFI — 尺度内特征交互</div>
+            <p class="card-text" style="margin-bottom: 0.6em;"><span class="badge">Attention-based Intra-scale Feature Interaction</span></p>
+            <ul class="bullet-list">
+              <li>仅对 <span class="text-accent">S5</span> 使用单尺度 Transformer 编码器</li>
+              <li>捕获概念实体间的连接关系</li>
+              <li>有利于后续模块的定位和识别</li>
+              <li>序列长度短，计算开销可控</li>
+            </ul>
+          </div>
+        </div>
+        <div class="anim">
+          <div class="card" style="border-top: 3px solid #132843;">
+            <div class="card-title">CCFF — 跨尺度特征融合</div>
+            <p class="card-text" style="margin-bottom: 0.6em;"><span class="badge badge-dark">CNN-based Cross-scale Feature Fusion</span></p>
+            <ul class="bullet-list">
+              <li>基于 <span class="text-accent">PANet 风格</span>的跨尺度特征融合</li>
+              <li>使用融合块（Fusion Block）融合相邻尺度特征</li>
+              <li>1x1 卷积调整通道数</li>
+              <li>RepBlocks 特征融合 + 元素级相加</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+      <div>
+        <div class="anim">
+          <div class="flow-row" style="flex-direction: column; gap: 0.6rem; align-items: stretch;">
+            <div class="flow-box flow-box-light" style="width: 100%;">S5 (高层语义特征)</div>
+            <div style="text-align: center;"><span class="flow-arrow">↓</span></div>
+            <div class="flow-box flow-box-primary" style="width: 100%;">AIFI — Transformer 自注意力</div>
+            <div style="text-align: center;"><span class="flow-arrow">↓</span></div>
+            <div class="flow-box flow-box-accent" style="width: 100%;">CCFF — 跨尺度特征融合 (PANet)</div>
+            <div style="text-align: center;"><span class="flow-arrow">↓</span></div>
+            <div class="flow-box flow-box-light" style="width: 100%;">融合后的多尺度特征 {P3, P4, P5}</div>
+          </div>
+        </div>
+        <div class="anim">
+          <div class="highlight-bar" style="margin-top: 1.5vh;">
+            <strong>解耦设计效果：</strong>延迟降低 <span class="text-accent">35%</span>，同时 AP 提升 <span class="text-accent">0.4%</span>。
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== SLIDE 7: 不确定性最小化查询选择 ==================== -->
+  <div class="slide" data-index="6">
+    <div class="glow glow-purple" style="top: -10%; right: 0%;"></div>
+    <h2 class="slide-title anim">不确定性最小化查询选择</h2>
+    <div class="two-col">
+      <div>
+        <div class="anim">
+          <div class="card" style="border-left: 4px solid #ff6b6b; margin-bottom: 1.2vh;">
+            <div class="card-title" style="color: #c0392b;">现有方法的问题</div>
+            <ul class="bullet-list">
+              <li class="accent">仅使用分类分数选择 Top-K 特征</li>
+              <li class="accent">忽略定位置信度</li>
+              <li class="accent">检测器需同时建模类别和位置</li>
+              <li class="accent">两者共同决定特征质量</li>
+            </ul>
+          </div>
+        </div>
+        <div class="anim">
+          <div class="card" style="margin-bottom: 1.2vh;">
+            <div class="card-title">不确定性定义</div>
+            <div class="formula">
+              U(X&#770;) = || P(X&#770;) - C(X&#770;) ||
+            </div>
+            <p class="card-text" style="margin-top: 0.5em;">
+              <span class="text-accent">P(X&#770;)</span>：定位预测分布<br>
+              <span class="text-accent">C(X&#770;)</span>：分类预测分布<br>
+              差异越小 → 特征质量越高
+            </p>
+          </div>
+        </div>
+      </div>
+      <div>
+        <div class="anim">
+          <div class="card" style="border-top: 3px solid #3966A2; margin-bottom: 1.2vh;">
+            <div class="card-title">核心方法</div>
+            <ul class="bullet-list">
+              <li>将不确定性集成到<span class="text-accent">损失函数</span>中</li>
+              <li>通过梯度优化最小化不确定性</li>
+              <li>选择不确定性最低的 Top-K 特征作为初始查询</li>
+              <li>同时考虑分类和定位质量</li>
+            </ul>
+          </div>
+        </div>
+        <div class="anim">
+          <div class="card" style="background: rgba(19,40,67,0.03);">
+            <div class="card-title" style="text-align: center; margin-bottom: 1em;">高质量特征比例对比</div>
+            <div class="card-grid card-grid-2" style="gap: 1rem;">
+              <div style="text-align: center;">
+                <div style="font-size: 0.8em; color: #8a9bb5; margin-bottom: 0.3em;">分类分数 &gt; 0.5</div>
+                <div class="metric-value" style="font-size: clamp(1.4rem, 2.2vw, 1.8rem); color: #27ae60;">0.82</div>
+                <div class="metric-label">本方法</div>
+              </div>
+              <div style="text-align: center;">
+                <div style="font-size: 0.8em; color: #8a9bb5; margin-bottom: 0.3em;">分类分数 &gt; 0.5</div>
+                <div class="metric-value" style="font-size: clamp(1.4rem, 2.2vw, 1.8rem); color: #999;">0.35</div>
+                <div class="metric-label">基线方法</div>
+              </div>
+              <div style="text-align: center;">
+                <div style="font-size: 0.8em; color: #8a9bb5; margin-bottom: 0.3em;">双分数 &gt; 0.5</div>
+                <div class="metric-value" style="font-size: clamp(1.4rem, 2.2vw, 1.8rem); color: #27ae60;">0.67</div>
+                <div class="metric-label">本方法</div>
+              </div>
+              <div style="text-align: center;">
+                <div style="font-size: 0.8em; color: #8a9bb5; margin-bottom: 0.3em;">双分数 &gt; 0.5</div>
+                <div class="metric-value" style="font-size: clamp(1.4rem, 2.2vw, 1.8rem); color: #999;">0.30</div>
+                <div class="metric-label">基线方法</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== SLIDE 8: 灵活速度调节 ==================== -->
+  <div class="slide" data-index="7">
+    <div class="glow glow-blue" style="top: -5%; left: 30%;"></div>
+    <div class="glow glow-yellow" style="bottom: -8%; right: -3%;"></div>
+    <h2 class="slide-title anim">灵活速度调节</h2>
+    <div class="two-col">
+      <div>
+        <div class="anim">
+          <div class="card" style="margin-bottom: 1.5vh;">
+            <div class="card-title">核心思想</div>
+            <ul class="bullet-list">
+              <li>通过调整<span class="text-accent">解码器层数</span>实现灵活速度调节</li>
+              <li><span class="text-accent">无需重新训练</span>，即插即用</li>
+              <li>适配不同实时场景需求</li>
+            </ul>
+          </div>
+        </div>
+        <div class="anim">
+          <div class="highlight-bar">
+            <strong>关键观察：</strong>移除末尾几层解码器对精度影响极小，但大幅提升推理速度。
+          </div>
+        </div>
+        <div class="anim">
+          <div class="card" style="margin-top: 1.5vh;">
+            <div class="card-title">实际示例</div>
+            <p class="card-text">
+              6 层解码器 → 5 层：仅损失 <span class="text-accent">0.1% AP</span>，延迟减少 <span class="text-accent">0.5ms</span>
+            </p>
+            <p class="card-text" style="margin-top: 0.5em;">
+              这意味着用户可以根据硬件条件和应用需求，在精度和速度之间自由权衡。
+            </p>
+          </div>
+        </div>
+      </div>
+      <div>
+        <div class="anim">
+          <div class="card" style="background: rgba(19,40,67,0.03);">
+            <div class="card-title" style="text-align: center; margin-bottom: 1em;">解码器层数 vs 性能权衡</div>
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>解码器层数</th>
+                  <th>AP (%)</th>
+                  <th>延迟变化</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr class="highlight-row">
+                  <td>6 层（完整）</td>
+                  <td>47.9</td>
+                  <td>基准</td>
+                </tr>
+                <tr>
+                  <td>5 层</td>
+                  <td>47.8</td>
+                  <td>-0.5ms</td>
+                </tr>
+                <tr>
+                  <td>4 层</td>
+                  <td>47.5</td>
+                  <td>-1.0ms</td>
+                </tr>
+                <tr>
+                  <td>3 层</td>
+                  <td>46.8</td>
+                  <td>-1.5ms</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div class="anim">
+          <div class="card" style="margin-top: 1.5vh;">
+            <div class="card-title">应用场景</div>
+            <div class="card-grid card-grid-2" style="gap: 0.6rem;">
+              <div style="text-align: center; padding: 0.5em;">
+                <div style="font-weight: 700; color: #132843; font-size: 0.85em;">高精度场景</div>
+                <div style="color: #6191D3; font-size: 0.78em;">6 层解码器</div>
+              </div>
+              <div style="text-align: center; padding: 0.5em;">
+                <div style="font-weight: 700; color: #132843; font-size: 0.85em;">高速度场景</div>
+                <div style="color: #6191D3; font-size: 0.78em;">3-4 层解码器</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== SLIDE 9: 实验结果 - 实时检测器对比 ==================== -->
+  <div class="slide" data-index="8">
+    <div class="glow glow-blue" style="top: -10%; right: 20%;"></div>
+    <h2 class="slide-title anim">实验结果 — 与实时检测器对比</h2>
+    <div class="two-col">
+      <div>
+        <div class="anim">
+          <div class="card" style="margin-bottom: 1.5vh;">
+            <div class="card-title" style="text-align: center; margin-bottom: 0.8em;">COCO val2017 性能对比</div>
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>模型</th>
+                  <th>AP (%)</th>
+                  <th>FPS (T4)</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr class="highlight-row">
+                  <td>RT-DETR-R50</td>
+                  <td>53.1</td>
+                  <td>108</td>
+                </tr>
+                <tr class="highlight-row">
+                  <td>RT-DETR-R101</td>
+                  <td>54.3</td>
+                  <td>74</td>
+                </tr>
+                <tr>
+                  <td>YOLOv8-L</td>
+                  <td>52.9</td>
+                  <td>71</td>
+                </tr>
+                <tr>
+                  <td>PP-YOLOE-L</td>
+                  <td>52.6</td>
+                  <td>64.4</td>
+                </tr>
+                <tr>
+                  <td>YOLOv5-L</td>
+                  <td>49.0</td>
+                  <td>54</td>
+                </tr>
+                <tr>
+                  <td>YOLOv7-L</td>
+                  <td>51.1</td>
+                  <td>72</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+      <div>
+        <div class="anim">
+          <div class="card-grid card-grid-3" style="margin-bottom: 1.5vh;">
+            <div class="card" style="text-align: center;">
+              <div class="metric-value">+0.2%</div>
+              <div class="metric-label">vs YOLOv8-L<br>AP 提升</div>
+            </div>
+            <div class="card" style="text-align: center;">
+              <div class="metric-value">+52.1%</div>
+              <div class="metric-label">vs YOLOv8-L<br>FPS 提升</div>
+            </div>
+            <div class="card" style="text-align: center;">
+              <div class="metric-value">+4.1%</div>
+              <div class="metric-label">vs YOLOv5-L<br>AP 提升</div>
+            </div>
+          </div>
+        </div>
+        <div class="anim">
+          <div class="card-grid card-grid-2" style="margin-bottom: 1.5vh;">
+            <div class="card" style="text-align: center;">
+              <div class="metric-value">+100%</div>
+              <div class="metric-label">vs YOLOv5-L<br>FPS 提升</div>
+            </div>
+            <div class="card" style="text-align: center;">
+              <div class="metric-value">+1.7%</div>
+              <div class="metric-label">vs PP-YOLOE-L<br>AP 提升</div>
+            </div>
+          </div>
+        </div>
+        <div class="anim">
+          <div class="highlight-bar">
+            <strong>结论：</strong>RT-DETR 在相同 Backbone 级别下，全面超越所有 YOLO 系列检测器，实现了精度和速度的双重提升。
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== SLIDE 10: 实验结果 - 端到端检测器对比 ==================== -->
+  <div class="slide" data-index="9">
+    <div class="glow glow-purple" style="bottom: -8%; left: 10%;"></div>
+    <h2 class="slide-title anim">实验结果 — 与端到端检测器对比</h2>
+    <div class="two-col">
+      <div>
+        <div class="anim">
+          <div class="card" style="margin-bottom: 1.5vh;">
+            <div class="card-title" style="text-align: center; margin-bottom: 0.8em;">同 Backbone DETR 变体对比</div>
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>模型</th>
+                  <th>Backbone</th>
+                  <th>AP (%)</th>
+                  <th>FPS</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr class="highlight-row">
+                  <td>RT-DETR-R50</td>
+                  <td>R-50</td>
+                  <td>53.1</td>
+                  <td>108</td>
+                </tr>
+                <tr>
+                  <td>DINO-Deformable</td>
+                  <td>R-50</td>
+                  <td>50.9</td>
+                  <td>5</td>
+                </tr>
+                <tr>
+                  <td>Deformable DETR</td>
+                  <td>R-50</td>
+                  <td>46.2</td>
+                  <td>18</td>
+                </tr>
+                <tr>
+                  <td>Conditional DETR</td>
+                  <td>R-50</td>
+                  <td>44.4</td>
+                  <td>16</td>
+                </tr>
+                <tr>
+                  <td>DETR</td>
+                  <td>R-50</td>
+                  <td>42.0</td>
+                  <td>2</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+      <div>
+        <div class="anim">
+          <div class="card" style="margin-bottom: 1.5vh;">
+            <div class="card-title" style="text-align: center; margin-bottom: 1em;">RT-DETR vs DINO-R50</div>
+            <div class="card-grid card-grid-2" style="gap: 1rem;">
+              <div style="text-align: center;">
+                <div class="metric-value">+2.2%</div>
+                <div class="metric-label">AP 提升<br>53.1% vs 50.9%</div>
+              </div>
+              <div style="text-align: center;">
+                <div class="metric-value" style="color: #27ae60;">~21x</div>
+                <div class="metric-label">FPS 提升<br>108 vs 5</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="anim">
+          <div class="card" style="border-top: 3px solid #3966A2; margin-bottom: 1.5vh;">
+            <div class="card-title">Objects365 预训练效果</div>
+            <ul class="bullet-list">
+              <li>RT-DETR-R50 + Objects365：<span class="text-accent">55.3% AP</span></li>
+              <li>RT-DETR-R101 + Objects365：<span class="text-accent">56.2% AP</span></li>
+              <li>大规模预训练进一步提升精度</li>
+              <li>端到端架构天然适配大规模数据</li>
+            </ul>
+          </div>
+        </div>
+        <div class="anim">
+          <div class="highlight-bar">
+            <strong>结论：</strong>RT-DETR 全面超越所有同 Backbone 的 DETR 变体，在精度和速度上均实现数量级提升。
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== SLIDE 11: 消融实验总结 ==================== -->
+  <div class="slide" data-index="10">
+    <div class="glow glow-blue" style="top: -5%; left: -3%;"></div>
+    <div class="glow glow-yellow" style="bottom: -5%; right: 5%;"></div>
+    <h2 class="slide-title anim">消融实验总结</h2>
+    <div class="two-col">
+      <div>
+        <div class="anim">
+          <div class="card" style="margin-bottom: 1.5vh;">
+            <div class="card-title" style="text-align: center; margin-bottom: 0.8em;">编码器消融实验</div>
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>变体</th>
+                  <th>AP (%)</th>
+                  <th>延迟 (ms)</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>A（基线）</td>
+                  <td>43.0</td>
+                  <td>7.2</td>
+                </tr>
+                <tr>
+                  <td>B</td>
+                  <td>44.8</td>
+                  <td>7.5</td>
+                </tr>
+                <tr>
+                  <td>C</td>
+                  <td>46.6</td>
+                  <td>8.2</td>
+                </tr>
+                <tr>
+                  <td>D</td>
+                  <td>47.5</td>
+                  <td>8.8</td>
+                </tr>
+                <tr class="highlight-row">
+                  <td>E（最终）</td>
+                  <td>47.9</td>
+                  <td>9.3</td>
+                </tr>
+              </tbody>
+            </table>
+            <p class="card-text" style="margin-top: 0.8em; text-align: center;">
+              AP 提升 <span class="text-accent">+4.9%</span>，延迟仅增加 2.1ms
+            </p>
+          </div>
+        </div>
+      </div>
+      <div>
+        <div class="anim">
+          <div class="card" style="margin-bottom: 1.5vh; border-top: 3px solid #3966A2;">
+            <div class="card-title">查询选择消融</div>
+            <ul class="bullet-list">
+              <li>不确定性最小化查询选择带来 <span class="text-accent">+0.8% AP</span> 提升</li>
+              <li>高质量初始查询显著加速收敛</li>
+              <li>分类和定位联合建模优于单一分数选择</li>
+            </ul>
+          </div>
+        </div>
+        <div class="anim">
+          <div class="card" style="margin-bottom: 1.5vh; border-top: 3px solid #132843;">
+            <div class="card-title">解码器消融</div>
+            <ul class="bullet-list">
+              <li>6 层解码器获得最佳精度</li>
+              <li>减少层数可灵活调节速度</li>
+              <li>4 层解码器仅损失 0.4% AP，延迟减少 1ms</li>
+            </ul>
+          </div>
+        </div>
+        <div class="anim">
+          <div class="highlight-bar">
+            <strong>总结：</strong>每个组件均有显著贡献，高效混合编码器和不确定性最小化查询选择是两大核心创新。
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== SLIDE 12: 总结与展望 ==================== -->
+  <div class="slide" data-index="11">
+    <div class="glow glow-blue" style="top: -10%; right: 10%;"></div>
+    <div class="glow glow-purple" style="bottom: -10%; left: 5%;"></div>
+    <h2 class="slide-title anim">总结与展望</h2>
+    <div class="two-col">
+      <div>
+        <div class="anim">
+          <div class="card" style="border-top: 3px solid #3966A2; margin-bottom: 1.2vh;">
+            <div class="card-title">核心贡献</div>
+            <ul class="bullet-list">
+              <li class="accent">首个<span class="text-accent">实时端到端</span>目标检测器</li>
+              <li class="accent">高效混合编码器：AIFI + CCFF 解耦设计</li>
+              <li class="accent">不确定性最小化查询选择</li>
+              <li class="accent">消除 NMS 后处理，简化部署流程</li>
+              <li class="accent">支持灵活速度调节，适配多样场景</li>
+            </ul>
+          </div>
+        </div>
+        <div class="anim">
+          <div class="card" style="border-left: 4px solid #ff6b6b;">
+            <div class="card-title" style="color: #c0392b;">局限性</div>
+            <ul class="bullet-list">
+              <li>小目标检测性能仍弱于强实时检测器</li>
+              <li>在极端高分辨率场景下延迟有待优化</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+      <div>
+        <div class="anim">
+          <div class="card" style="border-top: 3px solid #27ae60; margin-bottom: 1.2vh;">
+            <div class="card-title" style="color: #27ae60;">未来方向</div>
+            <ul class="bullet-list">
+              <li class="accent"><span class="text-accent">知识蒸馏</span>：利用大型 DETR 预训练模型蒸馏轻量检测器</li>
+              <li class="accent">进一步优化小目标检测能力</li>
+              <li class="accent">探索更高效的 Transformer 架构</li>
+            </ul>
+          </div>
+        </div>
+        <div class="anim">
+          <div class="quote-block" style="margin-bottom: 1.2vh;">
+            "DETRs Beat YOLOs" — 端到端目标检测范式在实时场景中首次取得全面领先，为未来检测器设计指明方向。
+          </div>
+        </div>
+        <div class="anim">
+          <div class="card" style="background: rgba(19,40,67,0.03); text-align: center;">
+            <div class="card-title" style="margin-bottom: 0.5em;">关键成果</div>
+            <div class="card-grid card-grid-2" style="gap: 0.8rem;">
+              <div>
+                <div class="metric-value" style="font-size: clamp(1.4rem, 2.2vw, 1.8rem);">53.1%</div>
+                <div class="metric-label">RT-DETR-R50 AP</div>
+              </div>
+              <div>
+                <div class="metric-value" style="font-size: clamp(1.4rem, 2.2vw, 1.8rem);">108</div>
+                <div class="metric-label">FPS (T4 GPU)</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ========== PROGRESS BAR ========== -->
+<div class="progress-bar" id="progressBar"></div>
+
+<!-- ========== BOTTOM CONTROLS ========== -->
+<div class="controls">
+  <button id="prevBtn" aria-label="上一页">&#8592;</button>
+  <span class="page-counter" id="pageCounter">1 / 12</span>
+  <button id="nextBtn" aria-label="下一页">&#8594;</button>
+</div>
+
+<!-- ========== RIGHT DOTS ========== -->
+<div class="dots-nav" id="dotsNav"></div>
+
+<script>
+(function() {
+  'use strict';
+
+  var slides = document.querySelectorAll('.slide');
+  var totalSlides = slides.length;
+  var currentIndex = 0;
+  var isTransitioning = false;
+
+  var progressBar = document.getElementById('progressBar');
+  var prevBtn = document.getElementById('prevBtn');
+  var nextBtn = document.getElementById('nextBtn');
+  var pageCounter = document.getElementById('pageCounter');
+  var dotsNav = document.getElementById('dotsNav');
+
+  // Create dots
+  for (var i = 0; i < totalSlides; i++) {
+    var dot = document.createElement('div');
+    dot.className = 'dot' + (i === 0 ? ' active' : '');
+    dot.setAttribute('data-index', i);
+    dot.addEventListener('click', function() {
+      var idx = parseInt(this.getAttribute('data-index'), 10);
+      goToSlide(idx);
+    });
+    dotsNav.appendChild(dot);
+  }
+
+  var dots = dotsNav.querySelectorAll('.dot');
+
+  function updateUI() {
+    // Progress bar
+    var progress = ((currentIndex + 1) / totalSlides) * 100;
+    progressBar.style.width = progress + '%';
+
+    // Page counter
+    pageCounter.textContent = (currentIndex + 1) + ' / ' + totalSlides;
+
+    // Buttons
+    prevBtn.disabled = currentIndex === 0;
+    nextBtn.disabled = currentIndex === totalSlides - 1;
+
+    // Dots
+    for (var i = 0; i < dots.length; i++) {
+      if (i === currentIndex) {
+        dots[i].classList.add('active');
+      } else {
+        dots[i].classList.remove('active');
+      }
+    }
+  }
+
+  function goToSlide(index) {
+    if (index === currentIndex || isTransitioning) return;
+    if (index < 0 || index >= totalSlides) return;
+
+    isTransitioning = true;
+
+    var direction = index > currentIndex ? 'forward' : 'backward';
+    var oldSlide = slides[currentIndex];
+    var newSlide = slides[index];
+
+    // Remove active from old slide
+    oldSlide.classList.remove('active');
+    oldSlide.classList.add('exit-up');
+
+    // Activate new slide
+    newSlide.classList.add('active');
+
+    currentIndex = index;
+    updateUI();
+
+    setTimeout(function() {
+      oldSlide.classList.remove('exit-up');
+      isTransitioning = false;
+    }, 650);
+  }
+
+  function nextSlide() {
+    if (currentIndex < totalSlides - 1) {
+      goToSlide(currentIndex + 1);
+    }
+  }
+
+  function prevSlide() {
+    if (currentIndex > 0) {
+      goToSlide(currentIndex - 1);
+    }
+  }
+
+  prevBtn.addEventListener('click', prevSlide);
+  nextBtn.addEventListener('click', nextSlide);
+
+  // Keyboard navigation
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'ArrowRight' || e.key === 'ArrowDown' || e.key === ' ') {
+      e.preventDefault();
+      nextSlide();
+    } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+      e.preventDefault();
+      prevSlide();
+    } else if (e.key === 'Home') {
+      e.preventDefault();
+      goToSlide(0);
+    } else if (e.key === 'End') {
+      e.preventDefault();
+      goToSlide(totalSlides - 1);
+    }
+  });
+
+  // Touch support
+  var touchStartX = 0;
+  var touchStartY = 0;
+
+  document.addEventListener('touchstart', function(e) {
+    touchStartX = e.changedTouches[0].screenX;
+    touchStartY = e.changedTouches[0].screenY;
+  }, { passive: true });
+
+  document.addEventListener('touchend', function(e) {
+    var deltaX = e.changedTouches[0].screenX - touchStartX;
+    var deltaY = e.changedTouches[0].screenY - touchStartY;
+
+    if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > 50) {
+      if (deltaX < 0) {
+        nextSlide();
+      } else {
+        prevSlide();
+      }
+    }
+  }, { passive: true });
+
+  // Initialize
+  updateUI();
+})();
+</script>
+
+</body>
+</html>

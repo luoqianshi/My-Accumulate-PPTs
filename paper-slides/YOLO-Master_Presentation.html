@@ -1,0 +1,784 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="icon" href="../assets/favicon.png" type="image/png" />
+<title>YOLO-Master Presentation</title>
+<style>
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#ffffff;--title:#3966A2;--emphasis:#132843;--secondary:#6191D3;
+  --text:#000000;--muted:#888;--card-bg:#f7f9fc;--border:#e2e8f0;
+  --radius:12px;
+}
+html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);color:var(--text);
+  font-family:'Inter','Noto Sans SC',-apple-system,'PingFang SC','Microsoft YaHei',sans-serif;
+  -webkit-font-smoothing:antialiased}
+
+/* ── Progress Bar ── */
+.progress-bar{position:fixed;top:0;left:0;height:3px;background:var(--secondary);
+  transition:width .4s cubic-bezier(.4,0,.2,1);z-index:100;border-radius:0 2px 2px 0}
+
+/* ── Slides Container ── */
+.slides{width:100%;height:100%;position:relative}
+
+/* ── Single Slide ── */
+.slide{position:absolute;inset:0;padding:5vh 7vw;display:flex;flex-direction:column;
+  justify-content:center;opacity:0;visibility:hidden;transform:translateY(30px);
+  transition:opacity .5s ease,visibility .5s ease,transform .5s ease}
+.slide.active{opacity:1!important;visibility:visible!important;transform:translateY(0)!important}
+.slide.exit-up{opacity:0!important;visibility:hidden!important;transform:translateY(-30px)!important}
+
+/* ── Typography ── */
+.slide h1{font-size:clamp(2rem,4.5vw,3.6rem);font-weight:800;color:var(--title);
+  line-height:1.2;margin-bottom:.6em;letter-spacing:-.02em}
+.slide h2{font-size:clamp(1.5rem,3vw,2.4rem);font-weight:700;color:var(--title);
+  line-height:1.25;margin-bottom:.5em}
+.slide h3{font-size:clamp(1rem,1.8vw,1.35rem);font-weight:600;color:var(--emphasis);
+  line-height:1.4;margin-bottom:.4em}
+.slide p,.slide li{font-size:clamp(.85rem,1.3vw,1.05rem);color:var(--text);
+  line-height:1.7;font-weight:400}
+.slide .sub{color:var(--secondary);font-size:clamp(.8rem,1.2vw,.95rem);margin-top:.2em}
+
+/* ── Badge ── */
+.badge{display:inline-block;padding:.25em .7em;border-radius:20px;font-size:clamp(.65rem,.9vw,.8rem);
+  font-weight:600;background:var(--card-bg);color:var(--secondary);border:1px solid var(--border)}
+
+/* ── Cover Tags ── */
+.cover-tags{display:flex;gap:.6em;flex-wrap:wrap;margin-top:1.2em}
+.cover-tag{padding:.3em .9em;border-radius:20px;font-size:clamp(.7rem,1vw,.85rem);
+  font-weight:500;background:rgba(57,102,162,.08);color:var(--title);border:1px solid rgba(57,102,162,.15)}
+
+/* ── Card ── */
+.card{background:var(--card-bg);border:1px solid var(--border);border-radius:var(--radius);
+  padding:clamp(.8em,1.5vw,1.3em);transition:box-shadow .2s}
+.card:hover{box-shadow:0 4px 20px rgba(57,102,162,.08)}
+.card-grid{display:grid;gap:clamp(.6em,1.2vw,1em)}
+.card-grid.cols-2{grid-template-columns:repeat(2,1fr)}
+.card-grid.cols-3{grid-template-columns:repeat(3,1fr)}
+.card-grid.cols-4{grid-template-columns:repeat(4,1fr)}
+.card-grid.cols-5{grid-template-columns:repeat(5,minmax(0,1fr))}
+
+/* ── Highlight Bar ── */
+.highlight-bar{border-left:3px solid var(--secondary);padding:.5em 1em;
+  background:rgba(97,145,211,.06);border-radius:0 var(--radius) var(--radius) 0;
+  margin:.5em 0;font-weight:500}
+
+/* ── Steps ── */
+.steps{display:flex;flex-direction:column;gap:.8em}
+.step{display:flex;align-items:flex-start;gap:.8em}
+.step-num{flex-shrink:0;width:28px;height:28px;border-radius:50%;background:var(--title);
+  color:#fff;display:flex;align-items:center;justify-content:center;font-size:.75rem;font-weight:700}
+.step-body{flex:1}
+
+/* ── Bullet List ── */
+.bullet-list{list-style:none;padding:0}
+.bullet-list li{position:relative;padding-left:1.2em;margin-bottom:.35em}
+.bullet-list li::before{content:'';position:absolute;left:0;top:.55em;width:6px;height:6px;
+  border-radius:50%;background:var(--secondary)}
+
+/* ── Glow Decorations ── */
+.glow{position:absolute;border-radius:50%;filter:blur(80px);opacity:.18;pointer-events:none;z-index:0}
+.glow-blue{background:var(--secondary)}
+.glow-purple{background:#8b5cf6}
+.glow-yellow{background:#f59e0b}
+
+/* ── Animations ── */
+.anim{opacity:0;transform:translateY(18px);transition:opacity .5s ease,transform .5s ease}
+.slide.active .anim{opacity:1;transform:translateY(0)}
+.slide.active .anim:nth-child(1){transition-delay:.1s}
+.slide.active .anim:nth-child(2){transition-delay:.2s}
+.slide.active .anim:nth-child(3){transition-delay:.3s}
+.slide.active .anim:nth-child(4){transition-delay:.35s}
+.slide.active .anim:nth-child(5){transition-delay:.4s}
+.slide.active .anim:nth-child(6){transition-delay:.45s}
+.slide.active .anim:nth-child(7){transition-delay:.5s}
+.slide.active .anim:nth-child(8){transition-delay:.55s}
+
+/* ── Controls ── */
+.controls{position:fixed;bottom:2.5vh;left:50%;transform:translateX(-50%);
+  display:flex;align-items:center;gap:1.2em;z-index:100}
+.controls button{width:40px;height:40px;border-radius:50%;border:1px solid var(--border);
+  background:var(--bg);color:var(--title);font-size:1.1rem;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;transition:all .2s}
+.controls button:hover{background:var(--card-bg);border-color:var(--secondary)}
+.controls button:disabled{opacity:.3;cursor:default}
+.page-counter{font-size:.8rem;color:var(--muted);font-weight:500;min-width:3em;text-align:center}
+
+/* ── Dots ── */
+.dots{position:fixed;right:2vw;top:50%;transform:translateY(-50%);
+  display:flex;flex-direction:column;gap:.6em;z-index:100}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--border);cursor:pointer;
+  transition:all .3s}
+.dot.active{background:var(--title);transform:scale(1.3)}
+
+/* ── Cover Specific ── */
+.cover-center{display:flex;flex-direction:column;align-items:center;text-align:center;justify-content:center}
+.cover-center h1{font-size:clamp(2.5rem,5.5vw,4.2rem)}
+.cover-center .subtitle{font-size:clamp(.95rem,1.6vw,1.25rem);color:var(--emphasis);
+  font-weight:400;margin-top:.3em;max-width:700px}
+.cover-center .authors{font-size:clamp(.75rem,1.1vw,.9rem);color:var(--muted);margin-top:1em}
+
+/* ── Table ── */
+.data-table{width:100%;border-collapse:collapse;font-size:clamp(.75rem,1.1vw,.9rem)}
+.data-table th{text-align:left;padding:.5em .8em;background:var(--card-bg);
+  color:var(--title);font-weight:600;border-bottom:2px solid var(--border)}
+.data-table td{padding:.45em .8em;border-bottom:1px solid var(--border)}
+.data-table tr:last-child td{border-bottom:none}
+.data-table .best{color:var(--title);font-weight:700}
+
+/* ── Comparison ── */
+.compare-row{display:grid;grid-template-columns:1fr auto 1fr;gap:1em;align-items:center}
+.compare-col{padding:1em;border-radius:var(--radius)}
+.compare-col.left{background:rgba(239,68,68,.04);border:1px solid rgba(239,68,68,.12)}
+.compare-col.right{background:rgba(34,197,94,.04);border:1px solid rgba(34,197,94,.12)}
+.compare-vs{font-size:clamp(1rem,1.5vw,1.3rem);font-weight:800;color:var(--muted)}
+
+/* ── Metric Card ── */
+.metric{display:flex;flex-direction:column;align-items:center;padding:clamp(.6em,1.2vw,1em);
+  text-align:center}
+.metric .value{font-size:clamp(1.4rem,2.5vw,2.2rem);font-weight:800;color:var(--title)}
+.metric .label{font-size:clamp(.65rem,.9vw,.8rem);color:var(--muted);margin-top:.2em}
+.metric .delta{font-size:clamp(.6rem,.85vw,.75rem);color:#16a34a;font-weight:600;margin-top:.15em}
+
+/* ── Formula ── */
+.formula{background:var(--card-bg);border:1px solid var(--border);border-radius:var(--radius);
+  padding:.8em 1.2em;font-family:'Courier New',monospace;font-size:clamp(.8rem,1.2vw,1rem);
+  color:var(--emphasis);text-align:center;margin:.5em 0}
+
+/* ── Key Finding ── */
+.key-finding{display:flex;align-items:flex-start;gap:.6em;padding:.6em 1em;
+  background:rgba(57,102,162,.05);border-radius:var(--radius);border:1px solid rgba(57,102,162,.1)}
+.key-finding .kf-icon{flex-shrink:0;width:24px;height:24px;border-radius:50%;
+  background:var(--title);color:#fff;display:flex;align-items:center;justify-content:center;
+  font-size:.7rem;font-weight:700}
+
+/* ── Architecture Diagram ── */
+.arch-flow{display:flex;align-items:center;justify-content:center;gap:.5em;flex-wrap:wrap}
+.arch-block{padding:.5em 1.2em;border-radius:var(--radius);font-weight:600;
+  font-size:clamp(.8rem,1.2vw,1rem);text-align:center}
+.arch-block.backbone{background:var(--title);color:#fff}
+.arch-block.neck{background:var(--secondary);color:#fff}
+.arch-block.head{background:var(--emphasis);color:#fff}
+.arch-block.moe{background:#f59e0b;color:#fff;border:2px dashed #d97706}
+.arch-arrow{font-size:1.2rem;color:var(--muted);font-weight:700}
+
+/* ── Figure ── */
+.figure-caption{text-align:center;font-size:clamp(.7rem,1vw,.85rem);color:var(--muted);margin-top:.4em}
+
+/* ── Responsive tweaks ── */
+@media(max-width:768px){
+  .slide{padding:3vh 5vw}
+  .card-grid.cols-3,.card-grid.cols-4,.card-grid.cols-5{grid-template-columns:repeat(2,1fr)}
+  .dots{display:none}
+  .compare-row{grid-template-columns:1fr;gap:.5em}
+  .compare-vs{display:none}
+}
+</style>
+</head>
+<body>
+
+<!-- Progress Bar -->
+<div class="progress-bar" id="progressBar"></div>
+
+<!-- Slides -->
+<div class="slides" id="slidesContainer">
+
+  <!-- ==================== Slide 1: Cover ==================== -->
+  <div class="slide active" data-index="0">
+    <div class="glow glow-blue" style="width:400px;height:400px;top:-100px;right:-80px"></div>
+    <div class="glow glow-purple" style="width:300px;height:300px;bottom:-80px;left:-60px"></div>
+    <div class="cover-center" style="position:relative;z-index:1">
+      <div class="anim">
+        <span class="badge" style="font-size:clamp(.7rem,1vw,.85rem);margin-bottom:1em">arXiv:2512.23273v1 [cs.CV] 29 Dec 2025</span>
+      </div>
+      <h1 class="anim">YOLO-Master</h1>
+      <p class="subtitle anim">MOE-Accelerated with Specialized Transformers for Enhanced Real-time Detection</p>
+      <p class="authors anim">Xu Lin*, Jinlong Peng*, Zhenye Gan, Jiawen Zhu, Jun Liu</p>
+      <p class="authors anim" style="margin-top:.3em">Tencent Youtu Lab &amp; Singapore Management University</p>
+      <div class="cover-tags anim">
+        <span class="cover-tag">实时目标检测</span>
+        <span class="cover-tag">混合专家模型</span>
+        <span class="cover-tag">条件计算</span>
+        <span class="cover-tag">动态路由</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== Slide 2: Abstract ==================== -->
+  <div class="slide" data-index="1">
+    <div class="glow glow-blue" style="width:350px;height:350px;top:-80px;left:-60px"></div>
+    <h2 class="anim">摘要</h2>
+    <div class="card anim" style="margin-top:1em;position:relative;z-index:1">
+      <p style="line-height:1.85">
+        现有实时目标检测（RTOD）方法普遍采用 YOLO 类架构，但其依赖<strong style="color:var(--emphasis)">静态稠密计算</strong>，对所有输入施加统一处理，导致简单场景资源过度分配而复杂场景资源不足。
+      </p>
+      <p style="margin-top:.6em;line-height:1.85">
+        本文提出 <strong style="color:var(--emphasis)">YOLO-Master</strong>，通过高效稀疏混合专家（ES-MoE）模块实现<strong style="color:var(--emphasis)">实例条件自适应计算</strong>，根据场景复杂度动态分配计算资源。核心包括轻量级动态路由网络、Soft/Hard Top-K 分阶段路由策略及负载均衡监督机制。
+      </p>
+      <p style="margin-top:.6em;line-height:1.85">
+        在 MS COCO、PASCAL VOC、VisDrone、KITTI 和 SKU-110K 五个基准上达到 SOTA，COCO 上取得 <strong style="color:var(--emphasis)">42.4% AP / 1.62 ms</strong>，精度与速度均优于现有方法。
+      </p>
+    </div>
+  </div>
+
+  <!-- ==================== Slide 3: Background Problem ==================== -->
+  <div class="slide" data-index="2">
+    <div class="glow glow-blue" style="width:300px;height:300px;bottom:-70px;right:-50px"></div>
+    <h2 class="anim">研究背景与核心问题</h2>
+    <div class="card-grid cols-2 anim" style="margin-top:1em">
+      <div class="card">
+        <h3>YOLO 系列现状</h3>
+        <ul class="bullet-list" style="margin-top:.5em">
+          <li>单阶段检测框架，平衡精度与速度</li>
+          <li>广泛应用于自动驾驶、视频监控、机器人系统</li>
+          <li>历代改进聚焦骨干网络与特征融合策略</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3>根本性瓶颈</h3>
+        <ul class="bullet-list" style="margin-top:.5em">
+          <li>所有架构采用<strong style="color:var(--emphasis)">静态稠密计算</strong></li>
+          <li>无论输入复杂度，均通过相同网络路径处理</li>
+          <li>计算预算在设计时固定，缺乏自适应机制</li>
+        </ul>
+      </div>
+    </div>
+    <div class="highlight-bar anim" style="margin-top:1em">
+      <strong>问题本质：</strong>简单场景与复杂场景消耗相同计算预算，导致计算冗余与检测性能次优
+    </div>
+    <div class="key-finding anim" style="margin-top:.8em">
+      <span class="kf-icon">?</span>
+      <span>能否根据输入复杂度<strong style="color:var(--emphasis)">动态分配</strong>计算资源，打破静态精度-效率权衡？</span>
+    </div>
+  </div>
+
+  <!-- ==================== Slide 4: Contributions ==================== -->
+  <div class="slide" data-index="3">
+    <div class="glow glow-purple" style="width:300px;height:300px;bottom:-60px;right:-40px"></div>
+    <h2 class="anim">本文核心贡献</h2>
+    <div class="steps anim" style="margin-top:1em">
+      <div class="step">
+        <span class="step-num">1</span>
+        <div class="step-body">
+          <h3>首个面向 RTOD 的 MoE 条件计算框架</h3>
+          <p>将混合专家（MoE）引入实时目标检测，通过动态专家激活适配输入复杂度，打破静态容量-成本权衡</p>
+        </div>
+      </div>
+      <div class="step">
+        <span class="step-num">2</span>
+        <div class="step-body">
+          <h3>ES-MoE 模块与分阶段路由策略</h3>
+          <p>训练时 Soft Top-K 保证梯度流动与专家专业化，推理时 Hard Top-K 实现真正稀疏激活与硬件加速</p>
+        </div>
+      </div>
+      <div class="step">
+        <span class="step-num">3</span>
+        <div class="step-body">
+          <h3>负载均衡监督机制</h3>
+          <p>基于 MSE 形式惩罚专家利用率偏离均匀分布，有效防止专家坍塌，确保推理稀疏性不被破坏</p>
+        </div>
+      </div>
+      <div class="step">
+        <span class="step-num">4</span>
+        <div class="step-body">
+          <h3>五个大规模基准全面 SOTA</h3>
+          <p>MS COCO、PASCAL VOC、VisDrone、KITTI、SKU-110K 上均取得最优性能，验证自适应计算的泛化性</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== Slide 5: Related Work ==================== -->
+  <div class="slide" data-index="4">
+    <div class="glow glow-yellow" style="width:280px;height:280px;top:-50px;left:-40px"></div>
+    <h2 class="anim">相关工作</h2>
+    <div class="card-grid cols-2 anim" style="margin-top:1em">
+      <div class="card">
+        <h3>实时目标检测器</h3>
+        <ul class="bullet-list" style="margin-top:.5em">
+          <li>YOLO 系列：C2f、注意力机制、自适应视觉感知等改进</li>
+          <li>RT-DETR：Transformer 架构，同样采用静态计算模式</li>
+          <li><strong style="color:var(--emphasis)">共性局限：</strong>均缺乏动态资源分配机制</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3>混合专家模型（MoE）</h3>
+        <ul class="bullet-list" style="margin-top:.5em">
+          <li>起源于 NLP，通过门控网络路由到专家子网络实现条件计算</li>
+          <li>视觉领域：主要聚焦图像分类，密集预测任务探索甚少</li>
+          <li><strong style="color:var(--emphasis)">本文创新：</strong>首个面向轻量 CNN 实时检测器的 MoE 框架</li>
+        </ul>
+      </div>
+    </div>
+    <div class="highlight-bar anim" style="margin-top:1em">
+      <strong>关键区别：</strong>注意力机制仅自适应加权特征，而 MoE 通过条件专家激活实现输入依赖的容量分配，从根本上打破静态计算约束
+    </div>
+  </div>
+
+  <!-- ==================== Slide 6: Overall Architecture ==================== -->
+  <div class="slide" data-index="5">
+    <div class="glow glow-blue" style="width:320px;height:320px;top:-60px;right:-50px"></div>
+    <h2 class="anim">整体架构</h2>
+    <div class="arch-flow anim" style="margin-top:1.2em">
+      <div class="arch-block backbone">Backbone</div>
+      <span class="arch-arrow">&rarr;</span>
+      <div class="arch-block neck">Neck</div>
+      <span class="arch-arrow">&rarr;</span>
+      <div class="arch-block head">Detection Head</div>
+    </div>
+    <div class="arch-flow anim" style="margin-top:.8em">
+      <span style="color:var(--muted);font-size:clamp(.75rem,1vw,.85rem)">ES-MoE 插入位置：</span>
+      <div class="arch-block moe">Backbone</div>
+      <span class="arch-arrow">+</span>
+      <div class="arch-block moe">Neck</div>
+    </div>
+    <div class="card anim" style="margin-top:1em">
+      <img src="YOLO-Master_assets/crop_002_page003_reg1.png" alt="YOLO-Master Framework" style="max-width:100%;max-height:28vh;border-radius:var(--radius);display:block;margin:0 auto">
+      <p class="figure-caption">图2. YOLO-Master 整体框架与 ES-MoE 信息流程</p>
+    </div>
+    <div class="highlight-bar anim" style="margin-top:.8em">
+      <strong>最优配置：</strong>仅在 Backbone 中集成 ES-MoE（Neck 中插入反而导致性能下降 -5.9%）
+    </div>
+  </div>
+
+  <!-- ==================== Slide 7: ES-MoE Module ==================== -->
+  <div class="slide" data-index="6">
+    <div class="glow glow-yellow" style="width:280px;height:280px;top:-50px;left:-40px"></div>
+    <h2 class="anim">ES-MoE 模块设计</h2>
+    <div class="steps anim" style="margin-top:.8em">
+      <div class="step">
+        <span class="step-num">1</span>
+        <div class="step-body">
+          <h3>动态路由网络</h3>
+          <p>生成实例相关的路由信号，决定哪些专家被激活</p>
+        </div>
+      </div>
+      <div class="step">
+        <span class="step-num">2</span>
+        <div class="step-body">
+          <h3>Softmax 门控机制</h3>
+          <p>对路由信号归一化，选择最相关的 Top-K 专家并生成权重分布</p>
+        </div>
+      </div>
+      <div class="step">
+        <span class="step-num">3</span>
+        <div class="step-body">
+          <h3>加权聚合单元</h3>
+          <p>融合被激活专家的输出，经归一化后得到精炼特征表示</p>
+        </div>
+      </div>
+    </div>
+    <div class="formula anim" style="margin-top:.8em">
+      Y = Norm( &Sigma;<sub>i&isin;T<sub>K</sub></sub> w<sub>i</sub> &middot; Expert<sub>i</sub>(X) )
+    </div>
+    <div class="card-grid cols-2 anim" style="margin-top:.8em">
+      <div class="card">
+        <h3>Backbone 中的 ES-MoE</h3>
+        <p>动态增强不同尺度和场景复杂度的特征提取</p>
+      </div>
+      <div class="card">
+        <h3>Neck 中的 ES-MoE</h3>
+        <p>实现多尺度自适应特征融合与信息精炼</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== Slide 8: Expert & Gating Design ==================== -->
+  <div class="slide" data-index="7">
+    <div class="glow glow-purple" style="width:300px;height:300px;bottom:-70px;left:-50px"></div>
+    <h2 class="anim">专家网络与门控设计</h2>
+    <div class="card-grid cols-2 anim" style="margin-top:1em">
+      <div class="card">
+        <h3>高效专家架构</h3>
+        <ul class="bullet-list" style="margin-top:.4em">
+          <li>采用<strong style="color:var(--emphasis)">深度可分离卷积（DWConv）</strong>降低参数量和计算量</li>
+          <li>不同卷积核大小捕获多尺度特征：</li>
+        </ul>
+        <div class="card-grid cols-3" style="margin-top:.5em">
+          <div class="card" style="text-align:center"><strong>3&times;3</strong><br><span class="sub">小尺度特征</span></div>
+          <div class="card" style="text-align:center"><strong>5&times;5</strong><br><span class="sub">中尺度特征</span></div>
+          <div class="card" style="text-align:center"><strong>7&times;7</strong><br><span class="sub">大尺度特征</span></div>
+        </div>
+      </div>
+      <div class="card">
+        <h3>轻量级门控网络</h3>
+        <ul class="bullet-list" style="margin-top:.4em">
+          <li><strong>全局平均池化（GAP）</strong>压缩输入为全局描述符</li>
+          <li>两层 1&times;1 卷积（C<sub>in</sub> &rarr; C<sub>red</sub> &rarr; E）</li>
+          <li>通道缩减比 &gamma; = 8，确保路由决策本身不构成瓶颈</li>
+          <li>计算复杂度仅取决于通道数 C 和专家数 E，与空间尺寸 H&times;W 无关</li>
+        </ul>
+      </div>
+    </div>
+    <div class="formula anim" style="margin-top:.8em">
+      &Lambda; = Conv<sub>1&times;1</sub><sup>out=E</sup>( SiLU( Conv<sub>1&times;1</sub><sup>out=C<sub>red</sub></sup>( GAP(X) ) ) )
+    </div>
+  </div>
+
+  <!-- ==================== Slide 9: Phased Routing ==================== -->
+  <div class="slide" data-index="8">
+    <div class="glow glow-blue" style="width:300px;height:300px;top:-60px;right:-50px"></div>
+    <h2 class="anim">分阶段路由策略</h2>
+    <div class="compare-row anim" style="margin-top:1em">
+      <div class="compare-col left">
+        <h3 style="color:#dc2626">训练阶段：Soft Top-K</h3>
+        <ul class="bullet-list" style="margin-top:.5em">
+          <li>构造二值硬掩码选择 Top-K 专家</li>
+          <li>掩码与 Softmax 权重逐元素相乘并重归一化</li>
+          <li>保留梯度连续性，所有专家获得非零梯度</li>
+          <li>促进专家专业化与互补分工</li>
+        </ul>
+      </div>
+      <span class="compare-vs">VS</span>
+      <div class="compare-col right">
+        <h3 style="color:#16a34a">推理阶段：Hard Top-K</h3>
+        <ul class="bullet-list" style="margin-top:.5em">
+          <li>仅对 Top-K 个最大 logits 应用 Softmax</li>
+          <li>其余 E-K 个专家权重严格置零</li>
+          <li>仅调用 K 个专家模块，实现真正稀疏前向传播</li>
+          <li>在实际硬件上获得显著加速</li>
+        </ul>
+      </div>
+    </div>
+    <div class="highlight-bar anim" style="margin-top:1em">
+      <strong>动态切换：</strong>基于 <code>self.training</code> 自动选择路由模式，训练与推理无缝衔接
+    </div>
+    <div class="formula anim" style="margin-top:.8em">
+      &Omega; = { &Omega;<sub>train</sub>  if Training; &Omega;<sub>infer</sub>  if Inference }
+    </div>
+  </div>
+
+  <!-- ==================== Slide 10: Loss Function ==================== -->
+  <div class="slide" data-index="9">
+    <div class="glow glow-yellow" style="width:280px;height:280px;bottom:-60px;left:-40px"></div>
+    <h2 class="anim">损失函数设计</h2>
+    <div class="formula anim" style="margin-top:.8em">
+      L<sub>total</sub> = L<sub>YOLO</sub> + &lambda;<sub>LB</sub> &times; L<sub>LB</sub>
+    </div>
+    <div class="card-grid cols-2 anim" style="margin-top:1em">
+      <div class="card">
+        <h3>检测损失 L<sub>YOLO</sub></h3>
+        <ul class="bullet-list" style="margin-top:.4em">
+          <li>分类损失 L<sub>cls</sub>（BCE）</li>
+          <li>定位损失 L<sub>loc</sub>（CIoU / DIoU）</li>
+          <li>分布焦点损失 L<sub>DFL</sub></li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3>负载均衡损失 L<sub>LB</sub></h3>
+        <ul class="bullet-list" style="margin-top:.4em">
+          <li>MSE 形式：惩罚专家平均利用率 &mu;<sub>i</sub> 偏离理想均匀分布 1/E</li>
+          <li>防止路由网络倾向少数"更强"专家</li>
+          <li>确保所有专家被充分利用，提升泛化能力</li>
+        </ul>
+      </div>
+    </div>
+    <div class="key-finding anim" style="margin-top:1em">
+      <span class="kf-icon">!</span>
+      <div>
+        <strong style="color:var(--emphasis)">关键发现：</strong>移除 DFL 损失，仅使用 MoE-only 损失（&lambda; = 1.5）效果最佳（62.2% mAP）
+        <br><span class="sub">原因：DFL 与 MoE 损失产生冲突梯度，DFL 强制均匀分布细化，而 MoE 鼓励实例自适应专家专业化</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== Slide 11: Main Results ==================== -->
+  <div class="slide" data-index="10">
+    <div class="glow glow-blue" style="width:350px;height:350px;bottom:-80px;right:-60px"></div>
+    <h2 class="anim">实验结果：五个基准全面领先</h2>
+    <div class="card-grid cols-5 anim" style="margin-top:0.6em">
+      <div class="metric">
+        <span class="value">42.4%</span>
+        <span class="label">MS COCO mAP</span>
+        <span class="delta">+0.8%</span>
+      </div>
+      <div class="metric">
+        <span class="value">62.1%</span>
+        <span class="label">PASCAL VOC mAP</span>
+        <span class="delta">+1.4%</span>
+      </div>
+      <div class="metric">
+        <span class="value">19.6%</span>
+        <span class="label">VisDrone mAP</span>
+        <span class="delta">+2.1%</span>
+      </div>
+      <div class="metric">
+        <span class="value">69.2%</span>
+        <span class="label">KITTI mAP</span>
+        <span class="delta">+1.5%</span>
+      </div>
+      <div class="metric">
+        <span class="value">58.2%</span>
+        <span class="label">SKU-110K mAP</span>
+        <span class="delta">+0.7%</span>
+      </div>
+    </div>
+    <div class="card-grid cols-3 anim" style="margin-top:0.8em">
+      <div class="card" style="text-align:center">
+        <h3>推理速度</h3>
+        <p style="font-size:clamp(1rem,1.8vw,1.5rem);font-weight:800;color:var(--title)">1.62 ms</p>
+        <p class="sub">比 YOLOv13-N 快 17.8%</p>
+      </div>
+      <div class="card" style="text-align:center">
+        <h3>ImageNet 分类</h3>
+        <p style="font-size:clamp(1rem,1.8vw,1.5rem);font-weight:800;color:var(--title)">76.6%</p>
+        <p class="sub">Top-1 准确率（+4.9%）</p>
+      </div>
+      <div class="card" style="text-align:center">
+        <h3>实例分割</h3>
+        <p style="font-size:clamp(1rem,1.8vw,1.5rem);font-weight:800;color:var(--title)">35.6%</p>
+        <p class="sub">mAP<sub>mask</sub>（+2.8%）</p>
+      </div>
+    </div>
+    <p class="sub anim" style="text-align:center;margin-top:.8em">对比基线：YOLOv13-N | VisDrone 与 KITTI 提升最大，验证小目标检测与精确定位优势</p>
+  </div>
+
+  <!-- ==================== Slide 12: Ablation Placement & Experts ==================== -->
+  <div class="slide" data-index="11">
+    <div class="glow glow-purple" style="width:300px;height:300px;top:-60px;left:-50px"></div>
+    <h2 class="anim">消融实验：模块放置与专家数量</h2>
+    <div class="card-grid cols-2 anim" style="margin-top:.8em">
+      <div class="card">
+        <h3>ES-MoE 放置策略</h3>
+        <table class="data-table" style="margin-top:.4em">
+          <tr><th>配置</th><th>参数量</th><th>mAP</th></tr>
+          <tr><td>Baseline</td><td>2.63M</td><td>60.8%</td></tr>
+          <tr><td>Neck Only</td><td>2.49M</td><td>58.2% <span style="color:#dc2626">(-2.6%)</span></td></tr>
+          <tr><td class="best">Backbone Only</td><td class="best">2.66M</td><td class="best">62.1% <span style="color:#16a34a">(+1.3%)</span></td></tr>
+          <tr><td>Both</td><td>2.76M</td><td>54.9% <span style="color:#dc2626">(-5.9%)</span></td></tr>
+        </table>
+        <p class="sub" style="margin-top:.3em">Backbone+Neck 出现梯度干扰，导致性能严重下降</p>
+      </div>
+      <div class="card">
+        <h3>专家数量</h3>
+        <table class="data-table" style="margin-top:.4em">
+          <tr><th>#Experts</th><th>参数量</th><th>mAP</th></tr>
+          <tr><td>2</td><td>2.51M</td><td>61.0%</td></tr>
+          <tr><td class="best">4</td><td class="best">2.76M</td><td class="best">62.3%</td></tr>
+          <tr><td>8</td><td>3.68M</td><td>62.0%</td></tr>
+        </table>
+        <p class="sub" style="margin-top:.3em">4 个专家达到最优平衡，8 个专家过参数化且收益递减</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== Slide 13: Ablation Top-K & Loss ==================== -->
+  <div class="slide" data-index="12">
+    <div class="glow glow-blue" style="width:280px;height:280px;top:-50px;right:-40px"></div>
+    <h2 class="anim">消融实验：Top-K 与损失配置</h2>
+    <div class="card-grid cols-2 anim" style="margin-top:.8em">
+      <div style="display:flex;flex-direction:column;gap:clamp(.6em,1.2vw,1em)">
+        <div class="card">
+          <h3>Top-K 选择（4 个专家）</h3>
+          <table class="data-table" style="margin-top:.4em">
+            <tr><th>K</th><th>稀疏度</th><th>mAP</th></tr>
+            <tr><td>1</td><td>75%</td><td>61.3%</td></tr>
+            <tr><td class="best">2</td><td class="best">50%</td><td class="best">61.8%</td></tr>
+            <tr><td>3</td><td>25%</td><td>61.8%</td></tr>
+            <tr><td>4</td><td>0%</td><td>61.9%</td></tr>
+          </table>
+          <p class="sub" style="margin-top:.3em">K=2 达到最优：两个互补专家提供充分特征多样性并保持计算效率</p>
+        </div>
+        <div class="card">
+          <h3>损失配置</h3>
+          <table class="data-table" style="margin-top:.4em">
+            <tr><th>配置</th><th>DFL</th><th>MoE</th><th>mAP</th></tr>
+            <tr><td>Config 1</td><td>&#10003;</td><td>0.5</td><td>61.9%</td></tr>
+            <tr><td>Config 2</td><td>&times;</td><td>0.5</td><td>61.9%</td></tr>
+            <tr><td>Config 4</td><td>&#10003;</td><td>1.5</td><td>61.4%</td></tr>
+            <tr><td class="best">Config 5</td><td class="best">&times;</td><td class="best">1.5</td><td class="best">62.2%</td></tr>
+          </table>
+          <p class="sub" style="margin-top:.3em">DFL + 强 MoE 损失导致训练震荡；MoE-only 收敛平滑且性能最佳</p>
+        </div>
+      </div>
+      <div class="card" style="display:flex;flex-direction:column;justify-content:center">
+        <img src="YOLO-Master_assets/crop_003_page007_reg1.png" alt="Loss Ablation" style="max-width:100%;max-height:46vh;border-radius:var(--radius);display:block;margin:0 auto">
+        <p class="figure-caption">图3. 损失消融实验：DFL 损失、MoE 损失、验证 mAP 与总损失收敛曲线</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== Slide 14: Qualitative & Downstream ==================== -->
+  <div class="slide" data-index="13">
+    <div class="glow glow-yellow" style="width:300px;height:300px;bottom:-70px;left:-50px"></div>
+    <h2 class="anim">定性分析与下游任务泛化</h2>
+    <div class="card-grid cols-2 anim" style="margin-top:.8em">
+      <div style="display:flex;flex-direction:column;gap:clamp(.6em,1.2vw,1em)">
+        <div class="card">
+          <h3>检测性能（Small Scale）</h3>
+          <p style="margin-top:.3em">YOLO-Master-S 在 MS COCO 上达到 <strong style="color:var(--emphasis)">49.1% mAP</strong>，Small 模型新 SOTA</p>
+        </div>
+        <div class="card">
+          <h3>跨任务一致性提升</h3>
+          <ul class="bullet-list" style="margin-top:.4em">
+            <li>分类：ImageNet Top-1 <strong>76.6%</strong>（+4.9%）</li>
+            <li>分割：COCO mAP<sub>mask</sub> <strong>35.6%</strong>（+2.8%）</li>
+            <li>验证 ES-MoE 作为通用视觉骨干的有效性</li>
+          </ul>
+        </div>
+      </div>
+      <div class="card" style="display:flex;flex-direction:column;justify-content:center">
+        <img src="YOLO-Master_assets/crop_004_page008_reg1.png" alt="Qualitative Comparison" style="max-width:100%;max-height:46vh;border-radius:var(--radius);display:block;margin:0 auto">
+        <p class="figure-caption">图4. 四个挑战性场景下的定性对比：小目标、类别歧义、复杂场景与密集场景</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== Slide 15: Summary ==================== -->
+  <div class="slide" data-index="14">
+    <div class="glow glow-blue" style="width:350px;height:350px;top:-80px;right:-60px"></div>
+    <div class="glow glow-yellow" style="width:250px;height:250px;bottom:-60px;left:-40px"></div>
+    <h2 class="anim">总结与展望</h2>
+    <div class="steps anim" style="margin-top:.8em">
+      <div class="step">
+        <span class="step-num">1</span>
+        <div class="step-body">
+          <h3>打破静态计算范式</h3>
+          <p>首个将 MoE 条件计算引入轻量 CNN 实时检测器的工作，实现输入依赖的动态容量分配</p>
+        </div>
+      </div>
+      <div class="step">
+        <span class="step-num">2</span>
+        <div class="step-body">
+          <h3>ES-MoE 模块与分阶段路由</h3>
+          <p>Soft Top-K 训练保证稳定性，Hard Top-K 推理实现真正稀疏加速，兼顾优化与部署效率</p>
+        </div>
+      </div>
+      <div class="step">
+        <span class="step-num">3</span>
+        <div class="step-body">
+          <h3>负载均衡监督防止专家坍塌</h3>
+          <p>MSE 形式的均衡损失确保所有专家被充分利用，维持训练稳定性与推理稀疏性</p>
+        </div>
+      </div>
+      <div class="step">
+        <span class="step-num">4</span>
+        <div class="step-body">
+          <h3>精度与速度双提升</h3>
+          <p>五个基准全面 SOTA，COCO 上 42.4% AP / 1.62 ms，比 YOLOv13-N 快 17.8%</p>
+        </div>
+      </div>
+    </div>
+    <div class="highlight-bar anim" style="margin-top:1em">
+      <strong>未来方向：</strong>扩展至视频检测、3D 目标检测等更多视觉任务；面向边缘端与移动端的资源受限自适应部署
+    </div>
+  </div>
+
+  <!-- ==================== Slide 16: Ending ==================== -->
+  <div class="slide" data-index="15">
+    <div class="glow glow-blue" style="width:400px;height:400px;top:-100px;right:-80px"></div>
+    <div class="glow glow-purple" style="width:300px;height:300px;bottom:-80px;left:-60px"></div>
+    <div class="cover-center" style="position:relative;z-index:1">
+      <h1 class="anim" style="font-size:clamp(2.5rem,5.5vw,4.2rem)">感谢聆听</h1>
+      <p class="subtitle anim" style="margin-top:.6em">YOLO-Master: MOE-Accelerated with Specialized Transformers for Enhanced Real-time Detection</p>
+      <p class="authors anim" style="margin-top:1.2em">Xu Lin, Jinlong Peng, Zhenye Gan, Jiawen Zhu, Jun Liu</p>
+      <div class="cover-tags anim" style="margin-top:1.2em">
+        <span class="cover-tag">Tencent Youtu Lab</span>
+        <span class="cover-tag">SMU</span>
+        <span class="cover-tag">arXiv:2512.23273</span>
+      </div>
+      <p class="sub anim" style="margin-top:1.5em">Code: github.com/isLinXu/YOLO-Master</p>
+    </div>
+  </div>
+
+</div>
+
+<!-- Controls -->
+<div class="controls">
+  <button id="prevBtn" disabled>&#8592;</button>
+  <span class="page-counter" id="pageCounter">1 / 16</span>
+  <button id="nextBtn">&#8594;</button>
+</div>
+
+<!-- Dots -->
+<div class="dots" id="dotsContainer"></div>
+
+<script>
+(function(){
+  const slides = document.querySelectorAll('.slide');
+  const total = slides.length;
+  const progressBar = document.getElementById('progressBar');
+  const prevBtn = document.getElementById('prevBtn');
+  const nextBtn = document.getElementById('nextBtn');
+  const pageCounter = document.getElementById('pageCounter');
+  const dotsContainer = document.getElementById('dotsContainer');
+
+  let current = 0;
+
+  // Create dots
+  for (let i = 0; i < total; i++) {
+    const dot = document.createElement('div');
+    dot.className = 'dot' + (i === 0 ? ' active' : '');
+    dot.dataset.index = i;
+    dot.addEventListener('click', function(){ goTo(parseInt(this.dataset.index)); });
+    dotsContainer.appendChild(dot);
+  }
+
+  function goTo(index) {
+    if (index < 0 || index >= total || index === current) return;
+    const prevSlide = slides[current];
+    const nextSlide = slides[index];
+
+    // Exit current
+    prevSlide.classList.remove('active');
+    if (index > current) {
+      prevSlide.classList.add('exit-up');
+    }
+
+    // Enter new
+    nextSlide.classList.remove('exit-up');
+    nextSlide.classList.add('active');
+
+    // Clean up exit class after transition
+    setTimeout(function(){
+      prevSlide.classList.remove('exit-up');
+    }, 500);
+
+    current = index;
+    updateUI();
+  }
+
+  function updateUI() {
+    prevBtn.disabled = current === 0;
+    nextBtn.disabled = current === total - 1;
+    pageCounter.textContent = (current + 1) + ' / ' + total;
+    progressBar.style.width = ((current + 1) / total * 100) + '%';
+
+    const dots = dotsContainer.querySelectorAll('.dot');
+    dots.forEach(function(d, i){
+      d.classList.toggle('active', i === current);
+    });
+  }
+
+  prevBtn.addEventListener('click', function(){ goTo(current - 1); });
+  nextBtn.addEventListener('click', function(){ goTo(current + 1); });
+
+  // Keyboard navigation
+  document.addEventListener('keydown', function(e){
+    if (e.key === 'ArrowRight' || e.key === 'ArrowDown' || e.key === ' ') {
+      e.preventDefault();
+      goTo(current + 1);
+    } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+      e.preventDefault();
+      goTo(current - 1);
+    }
+  });
+
+  // Touch support
+  let touchStartX = 0;
+  document.addEventListener('touchstart', function(e){ touchStartX = e.changedTouches[0].screenX; });
+  document.addEventListener('touchend', function(e){
+    const diff = touchStartX - e.changedTouches[0].screenX;
+    if (Math.abs(diff) > 50) {
+      if (diff > 0) goTo(current + 1);
+      else goTo(current - 1);
+    }
+  });
+
+  updateUI();
+})();
+</script>
+</body>
+</html>

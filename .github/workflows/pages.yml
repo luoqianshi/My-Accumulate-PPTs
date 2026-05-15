@@ -1,0 +1,81 @@
+name: Deploy GitHub Pages
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Generate slides manifest
+        shell: python
+        run: |
+          import datetime
+          import html
+          import json
+          import pathlib
+          import re
+
+          root = pathlib.Path.cwd()
+          slides_dir = root / "paper-slides"
+          title_pattern = re.compile(r"<title[^>]*>(.*?)</title>", re.I | re.S)
+
+          def title_from_file(path):
+              text = path.read_text(encoding="utf-8", errors="ignore")
+              match = title_pattern.search(text)
+              if match:
+                  return html.unescape(re.sub(r"\s+", " ", match.group(1))).strip()
+              return path.stem.replace("_", " ").replace("-", " ").title()
+
+          slides = []
+          for index, path in enumerate(sorted(slides_dir.glob("*.html"), key=lambda item: item.name.lower())):
+              slides.append({
+                  "title": title_from_file(path),
+                  "file": path.relative_to(root).as_posix(),
+                  "description": "从 paper-slides 目录自动发现的 HTML 格式 PPT，可直接嵌入放映或打开原页。",
+                  "kind": "HTML PPT",
+                  "accent": "rgba(93,112,82,.2)" if index % 2 == 0 else "rgba(193,140,93,.22)"
+              })
+
+          manifest = {
+              "generatedAt": datetime.datetime.now(datetime.UTC).isoformat(),
+              "slides": slides
+          }
+          (root / "slides-manifest.json").write_text(
+              json.dumps(manifest, ensure_ascii=False, indent=2) + "\n",
+              encoding="utf-8"
+          )
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: .
+
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

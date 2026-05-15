@@ -1,0 +1,1512 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="icon" href="../assets/favicon.png" type="image/png" />
+<title>Boosting Long-tailed Object Detection via Step-wise Learning on Smooth-tail Data</title>
+<style>
+/* ========== RESET & BASE ========== */
+*, *::before, *::after {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html, body {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  font-family: 'Inter', 'Noto Sans SC', -apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  background: #ffffff;
+  color: #000000;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ========== SLIDE CONTAINER ========== */
+.presentation {
+  width: 100%;
+  height: 100%;
+  position: relative;
+  overflow: hidden;
+}
+
+.slide {
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%;
+  height: 100%;
+  padding: 5vh 7vw;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(20px);
+  transition: opacity 0.6s cubic-bezier(0.4,0,0.2,1),
+              visibility 0.6s cubic-bezier(0.4,0,0.2,1),
+              transform 0.6s cubic-bezier(0.4,0,0.2,1);
+  z-index: 1;
+}
+
+.slide.active {
+  opacity: 1 !important;
+  visibility: visible !important;
+  transform: translateY(0) !important;
+  z-index: 10;
+}
+
+.slide.exit-up {
+  opacity: 0 !important;
+  visibility: hidden !important;
+  transform: translateY(-20px) !important;
+}
+
+/* ========== PROGRESS BAR ========== */
+.progress-bar {
+  position: fixed;
+  top: 0; left: 0;
+  height: 3px;
+  background: linear-gradient(90deg, #3966A2, #6191D3);
+  transition: width 0.4s cubic-bezier(0.4,0,0.2,1);
+  z-index: 100;
+  border-radius: 0 2px 2px 0;
+}
+
+/* ========== BOTTOM CONTROLS ========== */
+.controls {
+  position: fixed;
+  bottom: 2.5vh;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  z-index: 100;
+}
+
+.controls button {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 1.5px solid #3966A2;
+  background: #ffffff;
+  color: #3966A2;
+  font-size: 1.1rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.25s ease;
+}
+
+.controls button:hover {
+  background: #3966A2;
+  color: #ffffff;
+}
+
+.controls button:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.page-counter {
+  font-size: 0.85rem;
+  color: #6191D3;
+  font-weight: 500;
+  min-width: 60px;
+  text-align: center;
+}
+
+/* ========== RIGHT DOTS ========== */
+.dots-nav {
+  position: fixed;
+  right: 1.5vw;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  z-index: 100;
+}
+
+.dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #d0d8e8;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.dot.active {
+  background: #3966A2;
+  transform: scale(1.4);
+}
+
+.dot:hover {
+  background: #6191D3;
+}
+
+/* ========== TYPOGRAPHY ========== */
+.slide-title {
+  font-size: clamp(1.6rem, 3.2vw, 2.6rem);
+  font-weight: 800;
+  color: #3966A2;
+  margin-bottom: 3vh;
+  line-height: 1.3;
+}
+
+.slide-subtitle {
+  font-size: clamp(0.95rem, 1.6vw, 1.25rem);
+  color: #6191D3;
+  font-weight: 500;
+  margin-bottom: 2vh;
+  line-height: 1.6;
+}
+
+.text-accent {
+  color: #132843;
+  font-weight: 700;
+}
+
+.text-secondary {
+  color: #6191D3;
+}
+
+.text-muted {
+  color: #8a9bb5;
+  font-size: 0.9em;
+}
+
+/* ========== ANIMATIONS ========== */
+.anim {
+  opacity: 0;
+  transform: translateY(16px);
+  transition: opacity 0.5s cubic-bezier(0.4,0,0.2,1),
+              transform 0.5s cubic-bezier(0.4,0,0.2,1);
+}
+
+.slide.active .anim {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.slide.active .anim:nth-child(1) { transition-delay: 0.08s; }
+.slide.active .anim:nth-child(2) { transition-delay: 0.16s; }
+.slide.active .anim:nth-child(3) { transition-delay: 0.24s; }
+.slide.active .anim:nth-child(4) { transition-delay: 0.32s; }
+.slide.active .anim:nth-child(5) { transition-delay: 0.40s; }
+.slide.active .anim:nth-child(6) { transition-delay: 0.48s; }
+.slide.active .anim:nth-child(7) { transition-delay: 0.56s; }
+.slide.active .anim:nth-child(8) { transition-delay: 0.64s; }
+
+/* ========== BADGE ========== */
+.badge {
+  display: inline-block;
+  padding: 0.3em 0.9em;
+  border-radius: 20px;
+  font-size: clamp(0.7rem, 1vw, 0.85rem);
+  font-weight: 600;
+  background: rgba(57, 102, 162, 0.1);
+  color: #3966A2;
+  border: 1px solid rgba(57, 102, 162, 0.2);
+}
+
+.badge-dark {
+  background: #132843;
+  color: #ffffff;
+  border-color: #132843;
+}
+
+/* ========== COVER TAG ========== */
+.cover-tag {
+  display: inline-block;
+  padding: 0.35em 1em;
+  border-radius: 20px;
+  font-size: clamp(0.75rem, 1.1vw, 0.9rem);
+  font-weight: 600;
+  background: rgba(57, 102, 162, 0.08);
+  color: #3966A2;
+  border: 1px solid rgba(57, 102, 162, 0.15);
+  margin-right: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+/* ========== CARD ========== */
+.card {
+  background: #f7f9fc;
+  border-radius: 12px;
+  padding: clamp(1rem, 2vw, 1.6rem);
+  border: 1px solid rgba(57, 102, 162, 0.08);
+}
+
+.card-grid {
+  display: grid;
+  gap: clamp(0.8rem, 1.5vw, 1.2rem);
+}
+
+.card-grid-2 { grid-template-columns: 1fr 1fr; }
+.card-grid-3 { grid-template-columns: 1fr 1fr 1fr; }
+.card-grid-4 { grid-template-columns: 1fr 1fr 1fr 1fr; }
+
+.card-title {
+  font-size: clamp(0.85rem, 1.3vw, 1.05rem);
+  font-weight: 700;
+  color: #132843;
+  margin-bottom: 0.5em;
+}
+
+.card-text {
+  font-size: clamp(0.75rem, 1.1vw, 0.9rem);
+  color: #333;
+  line-height: 1.6;
+}
+
+/* ========== HIGHLIGHT BAR ========== */
+.highlight-bar {
+  background: linear-gradient(135deg, rgba(57, 102, 162, 0.08), rgba(97, 145, 211, 0.08));
+  border-left: 4px solid #3966A2;
+  border-radius: 0 8px 8px 0;
+  padding: clamp(0.8rem, 1.5vw, 1.2rem) clamp(1rem, 2vw, 1.5rem);
+  margin: 1vh 0;
+}
+
+.highlight-bar strong {
+  color: #132843;
+}
+
+/* ========== BULLET LIST ========== */
+.bullet-list {
+  list-style: none;
+  padding: 0;
+}
+
+.bullet-list li {
+  position: relative;
+  padding-left: 1.4em;
+  margin-bottom: 0.6em;
+  font-size: clamp(0.8rem, 1.2vw, 0.95rem);
+  line-height: 1.6;
+  color: #222;
+}
+
+.bullet-list li::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0.55em;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #3966A2;
+}
+
+.bullet-list li.accent::before {
+  background: #132843;
+  width: 7px;
+  height: 7px;
+}
+
+/* ========== STEPS ========== */
+.steps {
+  display: flex;
+  align-items: flex-start;
+  gap: clamp(0.5rem, 1.5vw, 1.2rem);
+  margin: 1vh 0;
+}
+
+.step {
+  flex: 1;
+  text-align: center;
+  position: relative;
+}
+
+.step-num {
+  width: clamp(32px, 3vw, 42px);
+  height: clamp(32px, 3vw, 42px);
+  border-radius: 50%;
+  background: #3966A2;
+  color: #ffffff;
+  font-weight: 700;
+  font-size: clamp(0.8rem, 1.2vw, 1rem);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 0.5em;
+}
+
+.step-label {
+  font-size: clamp(0.7rem, 1vw, 0.85rem);
+  font-weight: 600;
+  color: #132843;
+  line-height: 1.4;
+}
+
+.step-desc {
+  font-size: clamp(0.65rem, 0.9vw, 0.78rem);
+  color: #6191D3;
+  margin-top: 0.3em;
+  line-height: 1.4;
+}
+
+.step-arrow {
+  font-size: clamp(1rem, 1.5vw, 1.4rem);
+  color: #6191D3;
+  padding-top: clamp(10px, 1.2vw, 16px);
+  flex-shrink: 0;
+}
+
+/* ========== GLOW ========== */
+.glow {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(80px);
+  opacity: 0.35;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.glow-blue {
+  width: clamp(200px, 30vw, 400px);
+  height: clamp(200px, 30vw, 400px);
+  background: rgba(97, 145, 211, 0.3);
+}
+
+.glow-purple {
+  width: clamp(180px, 25vw, 350px);
+  height: clamp(180px, 25vw, 350px);
+  background: rgba(57, 102, 162, 0.25);
+}
+
+.glow-yellow {
+  width: clamp(150px, 20vw, 280px);
+  height: clamp(150px, 20vw, 280px);
+  background: rgba(255, 200, 87, 0.2);
+}
+
+/* ========== QUOTE BLOCK ========== */
+.quote-block {
+  border-left: 3px solid #6191D3;
+  padding: 0.8em 1.2em;
+  background: rgba(97, 145, 211, 0.05);
+  border-radius: 0 8px 8px 0;
+  font-style: italic;
+  color: #132843;
+  font-size: clamp(0.85rem, 1.2vw, 1rem);
+  line-height: 1.6;
+}
+
+/* ========== TABLE ========== */
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: clamp(0.72rem, 1vw, 0.88rem);
+}
+
+.data-table th {
+  background: #3966A2;
+  color: #ffffff;
+  padding: 0.6em 1em;
+  text-align: center;
+  font-weight: 600;
+}
+
+.data-table th:first-child {
+  border-radius: 8px 0 0 0;
+}
+
+.data-table th:last-child {
+  border-radius: 0 8px 0 0;
+}
+
+.data-table td {
+  padding: 0.55em 1em;
+  text-align: center;
+  border-bottom: 1px solid rgba(57, 102, 162, 0.1);
+  color: #222;
+}
+
+.data-table tr:nth-child(even) td {
+  background: rgba(57, 102, 162, 0.03);
+}
+
+.data-table tr.highlight-row td {
+  background: rgba(57, 102, 162, 0.08);
+  font-weight: 600;
+  color: #132843;
+}
+
+/* ========== FLOW DIAGRAM ========== */
+.flow-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(0.4rem, 1vw, 0.8rem);
+  margin: 1.5vh 0;
+  flex-wrap: wrap;
+}
+
+.flow-box {
+  padding: clamp(0.5em, 1vw, 0.8em) clamp(1em, 1.8vw, 1.5em);
+  border-radius: 8px;
+  font-size: clamp(0.72rem, 1vw, 0.88rem);
+  font-weight: 600;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.flow-box-primary {
+  background: #3966A2;
+  color: #ffffff;
+}
+
+.flow-box-accent {
+  background: #132843;
+  color: #ffffff;
+}
+
+.flow-box-light {
+  background: rgba(57, 102, 162, 0.1);
+  color: #3966A2;
+  border: 1px solid rgba(57, 102, 162, 0.2);
+}
+
+.flow-arrow {
+  color: #6191D3;
+  font-size: clamp(1rem, 1.5vw, 1.4rem);
+  flex-shrink: 0;
+}
+
+/* ========== METRIC ========== */
+.metric {
+  text-align: center;
+}
+
+.metric-value {
+  font-size: clamp(1.8rem, 3vw, 2.8rem);
+  font-weight: 800;
+  color: #3966A2;
+  line-height: 1.1;
+}
+
+.metric-label {
+  font-size: clamp(0.7rem, 1vw, 0.85rem);
+  color: #6191D3;
+  margin-top: 0.3em;
+  font-weight: 500;
+}
+
+/* ========== COVER SLIDE ========== */
+.cover-slide {
+  justify-content: center;
+  align-items: flex-start;
+  text-align: left;
+}
+
+.cover-slide .slide-title {
+  font-size: clamp(1.8rem, 3.6vw, 2.8rem);
+  margin-bottom: 1.5vh;
+  line-height: 1.2;
+}
+
+.cover-slide .slide-subtitle {
+  font-size: clamp(1rem, 1.8vw, 1.4rem);
+  margin-bottom: 2.5vh;
+}
+
+.cover-tags {
+  margin-bottom: 3vh;
+}
+
+.cover-author {
+  font-size: clamp(0.8rem, 1.2vw, 0.95rem);
+  color: #6191D3;
+  font-weight: 500;
+}
+
+/* ========== TWO COLUMN ========== */
+.two-col {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: clamp(1.5rem, 3vw, 2.5rem);
+  align-items: start;
+}
+
+.three-col {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: clamp(1rem, 2vw, 1.5rem);
+  align-items: start;
+}
+
+/* ========== FORMULA ========== */
+.formula {
+  background: rgba(19, 40, 67, 0.05);
+  border: 1px solid rgba(57, 102, 162, 0.12);
+  border-radius: 8px;
+  padding: 0.8em 1.5em;
+  font-family: 'Courier New', monospace;
+  font-size: clamp(0.85rem, 1.2vw, 1.05rem);
+  color: #132843;
+  text-align: center;
+  margin: 1vh 0;
+  font-weight: 600;
+}
+
+/* ========== COMPARISON ========== */
+.compare-row {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  gap: 1rem;
+  align-items: center;
+  margin: 0.8vh 0;
+}
+
+.compare-cell {
+  padding: 0.8em 1em;
+  border-radius: 8px;
+  font-size: clamp(0.75rem, 1.1vw, 0.9rem);
+  line-height: 1.5;
+}
+
+.compare-cell.left {
+  background: rgba(255, 107, 107, 0.06);
+  border: 1px solid rgba(255, 107, 107, 0.15);
+  text-align: right;
+}
+
+.compare-cell.right {
+  background: rgba(76, 175, 80, 0.06);
+  border: 1px solid rgba(76, 175, 80, 0.15);
+}
+
+.compare-vs {
+  font-weight: 800;
+  color: #6191D3;
+  font-size: clamp(0.9rem, 1.3vw, 1.1rem);
+}
+
+/* ========== SECTION LABEL ========== */
+.section-label {
+  font-size: clamp(0.7rem, 0.9vw, 0.8rem);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #6191D3;
+  margin-bottom: 0.5em;
+}
+
+/* ========== FIGURE ========== */
+.figure-box {
+  background: #f7f9fc;
+  border-radius: 12px;
+  padding: clamp(0.8rem, 1.5vw, 1.2rem);
+  border: 1px solid rgba(57, 102, 162, 0.08);
+  text-align: center;
+}
+
+.figure-box img {
+  max-width: 100%;
+  max-height: 36vh;
+  border-radius: 8px;
+}
+
+.figure-caption {
+  font-size: clamp(0.7rem, 0.9vw, 0.82rem);
+  color: #8a9bb5;
+  margin-top: 0.6em;
+}
+
+/* ========== RESPONSIVE ========== */
+@media (max-width: 900px) {
+  .card-grid-2, .card-grid-3, .card-grid-4, .two-col, .three-col {
+    grid-template-columns: 1fr;
+  }
+  .compare-row {
+    grid-template-columns: 1fr;
+  }
+  .compare-vs { display: none; }
+  .steps { flex-direction: column; }
+  .step-arrow { transform: rotate(90deg); }
+}
+</style>
+</head>
+<body>
+
+<div class="presentation" id="presentation">
+
+  <!-- ==================== SLIDE 1: COVER ==================== -->
+  <div class="slide cover-slide active" data-index="0">
+    <div class="glow glow-blue" style="top: -10%; right: -5%;"></div>
+    <div class="glow glow-purple" style="bottom: -10%; left: -5%;"></div>
+    <div class="anim">
+      <div class="cover-tags">
+        <span class="cover-tag">ICCV 2023</span>
+        <span class="cover-tag">NUS &amp; HIT</span>
+      </div>
+    </div>
+    <h1 class="slide-title anim">Boosting Long-tailed Object Detection<br>via Step-wise Learning on Smooth-tail Data</h1>
+    <p class="slide-subtitle anim">基于平滑尾部数据逐步学习的长尾目标检测增强方法</p>
+    <div class="anim">
+      <div class="highlight-bar" style="max-width: 720px;">
+        <strong>核心贡献：</strong>构建平滑尾部数据（Smooth-tail Data），设计<span class="text-accent">逐步学习框架</span>统一微调与知识迁移，在 LVIS 数据集上显著提升了稀有类别的检测精度。
+      </div>
+    </div>
+    <p class="cover-author anim">Na Dong, Yongqiang Zhang, Mingli Ding, Gim Hee Lee</p>
+  </div>
+
+  <!-- ==================== SLIDE 2: ABSTRACT ==================== -->
+  <div class="slide" data-index="1">
+    <div class="glow glow-blue" style="top: -15%; right: 10%;"></div>
+    <div class="anim"><span class="badge">ABSTRACT</span></div>
+    <h2 class="slide-title anim">论文摘要</h2>
+    <div class="anim">
+      <div class="quote-block" style="margin-bottom: 2vh;">
+        Real-world data tends to follow a long-tailed distribution, where the class imbalance results in dominance of the head classes during training.
+      </div>
+    </div>
+    <div class="anim">
+      <div class="card" style="margin-bottom: 1.5vh;">
+        <div class="card-title">研究动机</div>
+        <p class="card-text">现实数据往往呈现长尾分布，类别不平衡导致训练过程中头部类别主导模型，尾部类别性能严重退化。</p>
+      </div>
+    </div>
+    <div class="anim">
+      <div class="card" style="margin-bottom: 1.5vh;">
+        <div class="card-title">方法概述</div>
+        <ul class="bullet-list">
+          <li>构建 <span class="text-accent">Smooth-tail Data</span>：将长尾分布平滑衰减，缓解对头部类别的偏置</li>
+          <li>在完整长尾数据上<span class="text-accent">预训练</span>，保留所有类别的判别能力</li>
+          <li>在 Head-dominant 数据上<span class="text-accent">微调</span>，获得头部类别专家模型</li>
+          <li>在 Tail-dominant 数据上<span class="text-accent">训练统一模型</span>，同时迁移头部专家知识</li>
+        </ul>
+      </div>
+    </div>
+    <div class="anim">
+      <div class="highlight-bar">
+        <strong>核心结果：</strong>LVIS v0.5 上 ResNet-50 AP 从 <span class="text-accent">27.0%</span> 提升至 <span class="text-accent">30.3%</span>，稀有类别 AP 从 <span class="text-accent">15.5%</span> 提升至 <span class="text-accent">24.9%</span>。
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== SLIDE 3: BACKGROUND ==================== -->
+  <div class="slide" data-index="2">
+    <div class="glow glow-purple" style="bottom: -10%; left: 5%;"></div>
+    <h2 class="slide-title anim">研究背景与动机</h2>
+    <div class="two-col">
+      <div>
+        <div class="anim">
+          <div class="card" style="margin-bottom: 1.2vh;">
+            <div class="card-title">长尾分布问题</div>
+            <ul class="bullet-list">
+              <li>现实数据集类别数量呈<span class="text-accent">极端不平衡</span></li>
+              <li>头部类样本充足，尾部类样本极少</li>
+              <li>模型训练被头部类别主导</li>
+              <li>尾部类别检测精度显著下降</li>
+            </ul>
+          </div>
+        </div>
+        <div class="anim">
+          <div class="card" style="margin-bottom: 1.2vh;">
+            <div class="card-title">现有方法分类</div>
+            <ul class="bullet-list">
+              <li><span class="text-accent">数据重采样</span>：RFS、Bi-level sampling</li>
+              <li><span class="text-accent">损失重加权</span>：EQLv2、Seesaw Loss、EFL</li>
+              <li><span class="text-accent">增量学习</span>：LST（Hu et al.）</li>
+              <li><span class="text-accent">度量学习</span>：AHRL</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+      <div>
+        <div class="anim">
+          <div class="card" style="border-left: 4px solid #ff6b6b; margin-bottom: 1.2vh;">
+            <div class="card-title" style="color: #c0392b;">LST 的核心思想</div>
+            <ul class="bullet-list">
+              <li class="accent">"Divide &amp; Conquer" 策略</li>
+              <li class="accent">将长尾数据按样本量排序并硬分割</li>
+              <li class="accent">分 N 个阶段进行类增量少样本学习</li>
+              <li class="accent">每阶段合并上一阶段的exemplar replay</li>
+            </ul>
+          </div>
+        </div>
+        <div class="anim">
+          <div class="quote-block">
+            LST 采用多阶段增量学习，但存在灾难性遗忘、决策边界不一致等问题。
+          </div>
+        </div>
+        <div class="anim">
+          <div class="card" style="margin-top: 1.2vh; background: rgba(19,40,67,0.03);">
+            <div class="card-title" style="text-align: center;">本文核心洞察</div>
+            <p class="card-text" style="text-align: center;">长尾学习与类增量学习的本质区别：<br><span class="text-accent">所有类别的数据可以共存</span></p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== SLIDE 4: LST PROBLEMS ==================== -->
+  <div class="slide" data-index="3">
+    <div class="glow glow-blue" style="top: -8%; left: 50%;"></div>
+    <h2 class="slide-title anim">LST 方法的三大缺陷</h2>
+    <div class="two-col">
+      <div>
+        <div class="anim">
+          <div class="card" style="margin-bottom: 1.5vh;">
+            <div class="card-title" style="color: #c0392b;">1. 硬分割导致判别性降低</div>
+            <ul class="bullet-list">
+              <li>外观相似的类别被分到不同阶段</li>
+              <li>仅在 exemplar replay 子集上共同训练</li>
+              <li>类别间判别能力显著下降</li>
+            </ul>
+          </div>
+        </div>
+        <div class="anim">
+          <div class="card" style="margin-bottom: 1.5vh;">
+            <div class="card-title" style="color: #c0392b;">2. 决策边界不一致</div>
+            <ul class="bullet-list">
+              <li>当前模型同时训练头部和尾部的 replay</li>
+              <li>与仅训练头部的前一模型边界差异大</li>
+              <li>阻碍头部知识保持与尾部学习</li>
+            </ul>
+          </div>
+        </div>
+        <div class="anim">
+          <div class="card" style="margin-bottom: 1.5vh;">
+            <div class="card-title" style="color: #c0392b;">3. 多阶段加速灾难性遗忘</div>
+            <ul class="bullet-list">
+              <li>数据集被切分为众多小平衡子集</li>
+              <li>知识迁移步骤增多</li>
+              <li>灾难性遗忘被显著加速</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+      <div>
+        <div class="anim">
+          <div class="figure-box">
+            <img src="smooth-tail_assets/fig1_comparison.png" alt="Comparison with LST">
+            <div class="figure-caption">图1：本文方法（上）vs LST（下）。本文仅需3步，LST需N个阶段。</div>
+          </div>
+        </div>
+        <div class="anim" style="margin-top: 1.5vh;">
+          <div class="highlight-bar">
+            <strong>关键区别：</strong>本文方法始终维持所有类别的数据参与训练，仅调整各类别的占比来构建 Smooth-tail 数据。
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== SLIDE 5: SMOOTH-TAIL DATA ==================== -->
+  <div class="slide" data-index="4">
+    <div class="glow glow-purple" style="top: 5%; right: -5%;"></div>
+    <h2 class="slide-title anim">Smooth-tail 数据构建</h2>
+    <div class="two-col">
+      <div>
+        <div class="anim">
+          <div class="card" style="margin-bottom: 1.5vh;">
+            <div class="card-title">类别划分</div>
+            <ul class="bullet-list">
+              <li>给定长尾数据集 D<sub>l</sub>，含 C<sub>l</sub> 个类别</li>
+              <li><span class="text-accent">Head 类别 C<sub>head</sub></span>：每类包含 &ge; M 张图像（M=30）</li>
+              <li><span class="text-accent">Tail 类别 C<sub>tail</sub></span>：每类包含 &lt; M 张图像</li>
+            </ul>
+          </div>
+        </div>
+        <div class="anim">
+          <div class="card" style="margin-bottom: 1.5vh;">
+            <div class="card-title">D<sub>head</sub>：Head-dominant 数据</div>
+            <ul class="bullet-list">
+              <li>Head 类别的平衡子集（主导）</li>
+              <li>少量 Tail 类别的平衡子集（辅助）</li>
+              <li>缓解 Head 类内部不平衡</li>
+              <li>确保与最终模型决策边界差距小</li>
+            </ul>
+          </div>
+        </div>
+        <div class="anim">
+          <div class="card" style="margin-bottom: 1.5vh;">
+            <div class="card-title">D<sub>tail</sub>：Tail-dominant 数据</div>
+            <ul class="bullet-list">
+              <li>Tail 类别的平衡子集（主导）</li>
+              <li>少量 Head 类别的平衡子集（replay）</li>
+              <li>防止统一模型遗忘 Head 知识</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+      <div>
+        <div class="anim">
+          <div class="figure-box">
+            <img src="smooth-tail_assets/fig4_framework.png" alt="Smooth-tail data">
+            <div class="figure-caption">图3：Smooth-tail 数据构建示意图</div>
+          </div>
+        </div>
+        <div class="anim" style="margin-top: 1.5vh;">
+          <div class="card" style="background: rgba(19,40,67,0.03);">
+            <div class="card-title">置信度引导 Exemplar 选择</div>
+            <p class="card-text">使用预训练模型预测的分类分数排序，选择 top-scoring 实例作为代表性 exemplar。同时优先选择分数 &gt; 0.5 且来自不同图像的实例，保证多样性。</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== SLIDE 6: FRAMEWORK OVERVIEW ==================== -->
+  <div class="slide" data-index="5">
+    <div class="glow glow-blue" style="bottom: -10%; left: -3%;"></div>
+    <div class="glow glow-yellow" style="top: -5%; right: 10%;"></div>
+    <h2 class="slide-title anim">逐步学习框架总览</h2>
+    <div class="anim">
+      <div class="flow-row" style="margin-bottom: 2vh;">
+        <div class="flow-box flow-box-light">完整长尾数据 D<sub>l</sub></div>
+        <span class="flow-arrow">→</span>
+        <div class="flow-box flow-box-primary">Step 0：预训练<br><span style="font-size: 0.8em; font-weight: 400;">保留全类别判别力</span></div>
+        <span class="flow-arrow">→</span>
+        <div class="flow-box flow-box-accent">Step 1：D<sub>head</sub> 微调<br><span style="font-size: 0.8em; font-weight: 400;">Head 专家模型</span></div>
+        <span class="flow-arrow">→</span>
+        <div class="flow-box flow-box-primary">Step 2：D<sub>tail</sub> 训练<br><span style="font-size: 0.8em; font-weight: 400;">统一模型 + 知识迁移</span></div>
+      </div>
+    </div>
+    <div class="three-col">
+      <div class="anim">
+        <div class="card" style="border-top: 3px solid #3966A2;">
+          <div class="card-title">Step 0：预训练</div>
+          <ul class="bullet-list">
+            <li>在完整 D<sub>l</sub> 上预训练</li>
+            <li>使用 Deformable DETR 损失</li>
+            <li>学习所有类别的判别表示</li>
+            <li>为后续步骤提供分类置信度</li>
+          </ul>
+        </div>
+      </div>
+      <div class="anim">
+        <div class="card" style="border-top: 3px solid #132843;">
+          <div class="card-title">Step 1：D<sub>head</sub> 微调</div>
+          <ul class="bullet-list">
+            <li>仅更新 class-specific 模块</li>
+            <li>Projection layer &Phi;<sub>p</sub> + Classification head &Phi;<sub>cls</sub></li>
+            <li>保持 class-agnostic 模块冻结</li>
+            <li>获得 Head class expert</li>
+          </ul>
+        </div>
+      </div>
+      <div class="anim">
+        <div class="card" style="border-top: 3px solid #6191D3;">
+          <div class="card-title">Step 2：D<sub>tail</sub> 训练</div>
+          <ul class="bullet-list">
+            <li>统一模型初始化自 Head expert</li>
+            <li>仅更新 class-specific 模块</li>
+            <li>Feature-level 知识蒸馏</li>
+            <li>Classification-level 知识蒸馏</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+    <div class="anim" style="margin-top: 2vh;">
+      <div class="highlight-bar">
+        <strong>设计原则：</strong>通过限制可更新参数（仅 class-specific 模块），防止特征表示严重偏移，同时利用知识蒸馏保持头部类别性能。
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== SLIDE 7: PRE-TRAIN & FINE-TUNE ==================== -->
+  <div class="slide" data-index="6">
+    <div class="glow glow-purple" style="top: -10%; right: 0%;"></div>
+    <h2 class="slide-title anim">预训练与 D<sub>head</sub> 微调</h2>
+    <div class="two-col">
+      <div>
+        <div class="anim">
+          <div class="card" style="border-top: 3px solid #3966A2; margin-bottom: 1.5vh;">
+            <div class="card-title">预训练（Step 0）</div>
+            <ul class="bullet-list">
+              <li>基于 <span class="text-accent">Deformable DETR</span> 框架</li>
+              <li>在完整长尾数据 D<sub>l</sub> 上训练 50 epochs</li>
+              <li>初始学习率 2&times;10<sup>-4</sup>，40 epoch 衰减 0.1</li>
+              <li>提供分类置信度用于 exemplar 选择</li>
+              <li>保留所有类别的判别分离能力</li>
+            </ul>
+          </div>
+        </div>
+        <div class="anim">
+          <div class="card" style="border-top: 3px solid #132843; margin-bottom: 1.5vh;">
+            <div class="card-title">D<sub>head</sub> 微调（Step 1）</div>
+            <ul class="bullet-list">
+              <li>仅更新 <span class="text-accent">&Phi;<sub>p</sub></span>（投影层）和 <span class="text-accent">&Phi;<sub>cls</sub></span>（分类头）</li>
+              <li>Class-agnostic 模块（特征提取器、Transformer）<span class="text-accent">完全冻结</span></li>
+              <li>使用标准 Hungarian Loss 微调 <span class="text-accent">1 epoch</span></li>
+              <li>学习率 2&times;10<sup>-5</sup></li>
+            </ul>
+          </div>
+        </div>
+      </div>
+      <div>
+        <div class="anim">
+          <div class="card" style="margin-bottom: 1.5vh;">
+            <div class="card-title">Hungarian Loss</div>
+            <div class="formula">
+              L<sub>hg</sub> = &sum;<sub>i</sub> [ L<sub>cls</sub>(c<sub>i</sub>, p&#770;<sub>&sigma;(i)</sub>) + <strong>1</strong><sub>{c<sub>i</sub>&ne;&emptyset;}</sub> L<sub>box</sub>(b<sub>i</sub>, b&#770;<sub>&sigma;(i)</sub>) ]
+            </div>
+            <p class="card-text" style="margin-top: 0.5em;">
+              L<sub>cls</sub>：Sigmoid Focal Loss<br>
+              L<sub>box</sub>：L1 + GIoU Loss<br>
+              &sigma;(i)：最优二分匹配索引
+            </p>
+          </div>
+        </div>
+        <div class="anim">
+          <div class="highlight-bar">
+            <strong>关键约束：</strong>冻结 class-agnostic 模块对先前表示施加强约束，确保判别性表示在后续过程中不会严重偏移。
+          </div>
+        </div>
+        <div class="anim" style="margin-top: 1.5vh;">
+          <div class="card" style="background: rgba(19,40,67,0.03);">
+            <div class="card-title">D<sub>head</sub> 数据配比</div>
+            <p class="card-text">
+              Head 类：每类 200 个实例（主导）<br>
+              Tail 类：每类 30 个实例（辅助）<br>
+              采用 Step-wise RFS 缓解子集内不平衡
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- ==================== SLIDE 8: KNOWLEDGE TRANSFER ==================== -->
+  <div class="slide" data-index="7">
+    <div class="glow glow-blue" style="top: -5%; left: 30%;"></div>
+    <h2 class="slide-title anim">知识转移：D<sub>tail</sub> 训练</h2>
+    <div class="two-col">
+      <!-- 左列：图5在上（大），训练设置在下（紧凑） -->
+      <div style="display: flex; flex-direction: column; gap: 1.5vh;">
+        <div class="anim" style="flex: 1;">
+          <div class="figure-box" style="height: 100%; display: flex; flex-direction: column; justify-content: center;">
+            <img src="smooth-tail_assets/fig5_knowledge_transfer.png" alt="Knowledge Transfer" style="max-height: 48vh;">
+            <div class="figure-caption">图5：知识转移框架示意图</div>
+          </div>
+        </div>
+        <div class="anim">
+          <div class="card" style="padding: clamp(0.6rem, 1.2vw, 0.9rem);">
+            <div class="card-title">训练设置</div>
+            <ul class="bullet-list" style="margin-bottom: 0;">
+              <li>统一模型初始化自 Head expert</li>
+              <li>仅更新 &Phi;<sub>p</sub> 和 &Phi;<sub>cls</sub>，其余冻结</li>
+              <li>训练 <span class="text-accent">2 epochs</span>，lr = 2&times;10<sup>-4</sup></li>
+              <li>1 epoch 时 lr 衰减 0.1</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+      <!-- 右列：三个损失函数从上到下 -->
+      <div style="display: flex; flex-direction: column; gap: 1.5vh;">
+        <div class="anim">
+          <div class="card" style="border-top: 3px solid #3966A2;">
+            <div class="card-title">Feature-level 蒸馏</div>
+            <p class="card-text" style="margin-bottom: 0.6em;">使用 Head class focused binary mask：</p>
+            <div class="formula">
+              L<sub>fm_dis</sub> = (1/2N<sub>head</sub>) &sum;<sub>i,j,k</sub> mask<sup>head</sup><sub>ij</sub> || f<sup>unify</sup><sub>ijk</sub> - f<sup>head</sup><sub>ijk</sub> ||<sup>2</sup>
+            </div>
+            <p class="card-text" style="margin-top: 0.5em;">
+              mask 在 Head 类 GT 框内为 1，外部为 0<br>
+              防止对 Tail 类学习产生负面影响
+            </p>
+          </div>
+        </div>
+        <div class="anim">
+          <div class="card" style="border-top: 3px solid #132843;">
+            <div class="card-title">Classification-level 蒸馏</div>
+            <p class="card-text" style="margin-bottom: 0.6em;">共享 Object Query 特征对齐预测：</p>
+            <div class="formula">
+              L<sub>cls_dis</sub> = KL_div( log(p&#770;<sup>unify</sup><sub>shared</sub>), p&#770;<sup>head</sup> )
+            </div>
+            <p class="card-text" style="margin-top: 0.5em;">
+              q<sup>head</sup>：Head expert 的 decoder 输出<br>
+              直接共享给统一模型，避免 query 不匹配
+            </p>
+          </div>
+        </div>
+        <div class="anim">
+          <div class="card" style="background: rgba(19,40,67,0.03);">
+            <div class="card-title">总损失函数</div>
+            <div class="formula">
+              L<sub>total</sub> = L<sub>hg</sub> + &lambda;<sub>fm</sub>L<sub>fm_dis</sub> + &lambda;<sub>cls</sub>L<sub>cls_dis</sub>
+            </div>
+            <p class="card-text" style="margin-top: 0.5em; text-align: center;">
+              &lambda;<sub>fm</sub> = 0.1，&lambda;<sub>cls</sub> = 1
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== SLIDE 9: EXPERIMENTAL SETUP ==================== -->
+  <div class="slide" data-index="8">
+    <div class="glow glow-purple" style="bottom: -8%; left: 10%;"></div>
+    <h2 class="slide-title anim">实验设置</h2>
+    <div class="two-col">
+      <div>
+        <div class="anim">
+          <div class="card" style="margin-bottom: 1.5vh;">
+            <div class="card-title">数据集</div>
+            <ul class="bullet-list">
+              <li><span class="text-accent">LVIS v0.5</span>：1230 类，57K 训练图，5K 验证图</li>
+              <li><span class="text-accent">LVIS v1.0</span>：1203 类，100K 训练图，19.8K 验证图</li>
+              <li>类别划分：Frequent (&gt;100)、Common (10-100)、Rare (&lt;10)</li>
+              <li>评估指标：AP<sup>b</sup>、AP<sub>r</sub>、AP<sub>c</sub>、AP<sub>f</sub></li>
+            </ul>
+          </div>
+        </div>
+        <div class="anim">
+          <div class="card" style="margin-bottom: 1.5vh;">
+            <div class="card-title">基线模型</div>
+            <ul class="bullet-list">
+              <li>基于 <span class="text-accent">Deformable DETR</span></li>
+              <li>Backbone：ResNet-50 / ResNet-101</li>
+              <li>ImageNet 预训练权重初始化</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+      <div>
+        <div class="anim">
+          <div class="card" style="margin-bottom: 1.5vh;">
+            <div class="card-title">训练配置</div>
+            <ul class="bullet-list">
+              <li>8 &times; RTX 3090 GPUs，每卡 batch size = 2</li>
+              <li>优化器：AdamW，weight decay = 10<sup>-4</sup></li>
+              <li>Step 0：50 epochs，lr = 2&times;10<sup>-4</sup></li>
+              <li>Step 1：1 epoch，lr = 2&times;10<sup>-5</sup></li>
+              <li>Step 2：2 epochs，lr = 2&times;10<sup>-4</sup></li>
+              <li>阈值 M = 30，&lambda;<sub>fm</sub> = 0.1，&lambda;<sub>cls</sub> = 1</li>
+            </ul>
+          </div>
+        </div>
+        <div class="anim">
+          <div class="card" style="background: rgba(19,40,67,0.03);">
+            <div class="card-title">对比方法</div>
+            <p class="card-text">
+              LST、DropLoss、EQLv2、AHRL、BAGS、Seesaw Loss、EFL 等当前主流长尾目标检测方法。
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== SLIDE 10: MAIN RESULTS ==================== -->
+  <div class="slide" data-index="9">
+    <div class="glow glow-blue" style="top: -10%; right: 20%;"></div>
+    <h2 class="slide-title anim">主要实验结果</h2>
+    <div class="two-col">
+      <div>
+        <div class="anim">
+          <div class="card" style="margin-bottom: 1.5vh;">
+            <div class="card-title" style="text-align: center; margin-bottom: 0.8em;">LVIS v0.5 结果（ResNet-50）</div>
+            <table class="data-table">
+              <thead>
+                <tr><th>Method</th><th>AP</th><th>AP<sub>r</sub></th><th>AP<sub>c</sub></th><th>AP<sub>f</sub></th></tr>
+              </thead>
+              <tbody>
+                <tr><td>LST</td><td>22.6</td><td>-</td><td>-</td><td>-</td></tr>
+                <tr><td>DropLoss</td><td>25.1</td><td>-</td><td>-</td><td>-</td></tr>
+                <tr><td>EQLv2</td><td>27.0</td><td>-</td><td>-</td><td>-</td></tr>
+                <tr><td>AHRL</td><td>27.4</td><td>-</td><td>-</td><td>-</td></tr>
+                <tr><td>Baseline</td><td>27.0</td><td>15.5</td><td>26.9</td><td>31.6</td></tr>
+                <tr class="highlight-row"><td><strong>Ours</strong></td><td><strong>30.3</strong></td><td><strong>24.9</strong></td><td><strong>31.5</strong></td><td><strong>30.9</strong></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div class="anim">
+          <div class="card" style="margin-bottom: 1.5vh;">
+            <div class="card-title" style="text-align: center; margin-bottom: 0.8em;">LVIS v0.5 结果（ResNet-101）</div>
+            <table class="data-table">
+              <thead>
+                <tr><th>Method</th><th>AP</th><th>AP<sub>r</sub></th><th>AP<sub>c</sub></th><th>AP<sub>f</sub></th></tr>
+              </thead>
+              <tbody>
+                <tr><td>LST</td><td>26.3</td><td>-</td><td>-</td><td>-</td></tr>
+                <tr><td>DropLoss</td><td>26.8</td><td>-</td><td>-</td><td>-</td></tr>
+                <tr><td>EQLv2</td><td>28.1</td><td>-</td><td>-</td><td>-</td></tr>
+                <tr><td>AHRL</td><td>29.3</td><td>-</td><td>-</td><td>-</td></tr>
+                <tr><td>Baseline</td><td>27.0</td><td>14.6</td><td>27.3</td><td>31.7</td></tr>
+                <tr class="highlight-row"><td><strong>Ours</strong></td><td><strong>30.7</strong></td><td><strong>26.8</strong></td><td><strong>31.7</strong></td><td><strong>31.1</strong></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+      <div>
+        <div class="anim">
+          <div class="card-grid card-grid-2" style="margin-bottom: 1.5vh;">
+            <div class="card" style="text-align: center;">
+              <div class="metric-value">+3.3%</div>
+              <div class="metric-label">总体 AP 提升<br>R50</div>
+            </div>
+            <div class="card" style="text-align: center;">
+              <div class="metric-value" style="color: #27ae60;">+9.4%</div>
+              <div class="metric-label">稀有类 AP<sub>r</sub> 提升<br>R50</div>
+            </div>
+          </div>
+        </div>
+        <div class="anim">
+          <div class="card" style="margin-bottom: 1.5vh;">
+            <div class="card-title" style="text-align: center; margin-bottom: 0.8em;">LVIS v1.0 结果（ResNet-50）</div>
+            <table class="data-table">
+              <thead>
+                <tr><th>Method</th><th>AP</th><th>AP<sub>r</sub></th><th>AP<sub>c</sub></th><th>AP<sub>f</sub></th></tr>
+              </thead>
+              <tbody>
+                <tr><td>BAGS</td><td>26.0</td><td>17.2</td><td>24.9</td><td>31.1</td></tr>
+                <tr><td>EQLv2</td><td>25.5</td><td>16.4</td><td>23.9</td><td>31.2</td></tr>
+                <tr><td>Seesaw</td><td>26.4</td><td>17.5</td><td>25.3</td><td>31.5</td></tr>
+                <tr><td>EFL</td><td>27.5</td><td>20.2</td><td>26.1</td><td>32.4</td></tr>
+                <tr><td>Baseline</td><td>25.1</td><td>11.9</td><td>23.1</td><td>33.2</td></tr>
+                <tr class="highlight-row"><td><strong>Ours</strong></td><td><strong>28.7</strong></td><td><strong>21.8</strong></td><td><strong>28.4</strong></td><td><strong>32.0</strong></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div class="anim">
+          <div class="highlight-bar">
+            <strong>结论：</strong>本文方法在 LVIS v0.5 和 v1.0 上均取得 SOTA，尤其在稀有类别上提升显著（R50 上 +9.4% AP<sub>r</sub>）。
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== SLIDE 11: SOTA COMPARISON ==================== -->
+  <div class="slide" data-index="10">
+    <div class="glow glow-purple" style="bottom: -8%; left: 10%;"></div>
+    <h2 class="slide-title anim">与 SOTA 方法及基线对比</h2>
+    <div class="two-col">
+      <div>
+        <div class="anim">
+          <div class="card" style="margin-bottom: 1.5vh;">
+            <div class="card-title" style="text-align: center; margin-bottom: 0.8em;">LVIS v0.5（同基线对比）</div>
+            <table class="data-table">
+              <thead>
+                <tr><th>Method</th><th>Framework</th><th>AP</th></tr>
+              </thead>
+              <tbody>
+                <tr><td>AHRL Baseline</td><td>Mask R-CNN</td><td>26.7</td></tr>
+                <tr><td>AHRL</td><td>Mask R-CNN</td><td>27.4</td></tr>
+                <tr><td>Our Baseline</td><td>Deformable DETR</td><td>27.0</td></tr>
+                <tr class="highlight-row"><td><strong>Ours</strong></td><td>Deformable DETR</td><td><strong>30.3</strong></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div class="anim">
+          <div class="highlight-bar">
+            <strong>关键发现：</strong>本文方法在基线相近的情况下（27.0 vs 26.7），最终性能显著优于 AHRL（30.3 vs 27.4），证明提升来自方法设计而非基线优势。
+          </div>
+        </div>
+      </div>
+      <div>
+        <div class="anim">
+          <div class="card" style="margin-bottom: 1.5vh;">
+            <div class="card-title" style="text-align: center; margin-bottom: 0.8em;">LVIS v1.0（同基线对比）</div>
+            <table class="data-table">
+              <thead>
+                <tr><th>Method</th><th>Framework</th><th>AP</th></tr>
+              </thead>
+              <tbody>
+                <tr><td>EFL Baseline</td><td>RetinaNet</td><td>25.7</td></tr>
+                <tr><td>EFL</td><td>RetinaNet</td><td>27.5</td></tr>
+                <tr><td>Our Baseline</td><td>Deformable DETR</td><td>25.1</td></tr>
+                <tr class="highlight-row"><td><strong>Ours</strong></td><td>Deformable DETR</td><td><strong>28.7</strong></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div class="anim">
+          <div class="card" style="margin-bottom: 1.5vh;">
+            <div class="card-title">分析</div>
+            <ul class="bullet-list">
+              <li>EFL 基线（25.7）优于本文基线（25.1）</li>
+              <li>本文方法仍超越 EFL <span class="text-accent">1.2% AP</span></li>
+              <li>超越本文基线 <span class="text-accent">3.6% AP</span></li>
+              <li>提升源于 <span class="text-accent">逐步学习框架设计</span>，非基线差异</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== SLIDE 12: ABLATION ==================== -->
+  <div class="slide" data-index="11">
+    <div class="glow glow-blue" style="top: -5%; left: -3%;"></div>
+    <div class="glow glow-yellow" style="bottom: -5%; right: 5%;"></div>
+    <h2 class="slide-title anim">消融实验（一）</h2>
+    <div class="two-col">
+      <div>
+        <div class="anim">
+          <div class="card" style="margin-bottom: 1.5vh;">
+            <div class="card-title" style="text-align: center; margin-bottom: 0.8em;">各组件有效性（Table 3）</div>
+            <table class="data-table">
+              <thead>
+                <tr><th>FT</th><th>KT</th><th>AP</th><th>AP<sub>r</sub></th><th>AP<sub>c</sub></th><th>AP<sub>f</sub></th></tr>
+              </thead>
+              <tbody>
+                <tr><td></td><td></td><td>27.0</td><td>15.5</td><td>26.9</td><td>31.6</td></tr>
+                <tr><td>✓</td><td></td><td>29.7</td><td>19.4</td><td>31.4</td><td>31.6</td></tr>
+                <tr><td></td><td>✓</td><td>29.4</td><td>23.2</td><td>29.8</td><td>31.3</td></tr>
+                <tr class="highlight-row"><td>✓</td><td>✓</td><td><strong>30.3</strong></td><td><strong>24.9</strong></td><td><strong>31.5</strong></td><td><strong>30.9</strong></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div class="anim">
+          <div class="card" style="margin-bottom: 1.5vh;">
+            <div class="card-title">观察结论</div>
+            <ul class="bullet-list">
+              <li>单独 FT 提升 2.7% AP，但稀有类提升有限</li>
+              <li>单独 KT 提升 2.4% AP，稀有类提升显著</li>
+              <li>FT + KT 协同达到最佳：30.3% AP</li>
+              <li>稀有类 AP<sub>r</sub> 从 15.5% → 24.9%</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+      <div>
+        <div class="anim">
+          <div class="card" style="margin-bottom: 1.5vh;">
+            <div class="card-title" style="text-align: center; margin-bottom: 0.8em;">知识迁移组件消融（Table 4）</div>
+            <table class="data-table">
+              <thead>
+                <tr><th>SOQ</th><th>L<sub>fm</sub></th><th>L<sub>cls</sub></th><th>AP</th><th>AP<sub>r</sub></th></tr>
+              </thead>
+              <tbody>
+                <tr><td>✓</td><td>✓</td><td></td><td>29.4</td><td>24.9</td></tr>
+                <tr><td>✓</td><td></td><td>✓</td><td>29.7</td><td>25.0</td></tr>
+                <tr><td></td><td>✓</td><td>✓</td><td>24.4</td><td>24.3</td></tr>
+                <tr class="highlight-row"><td>✓</td><td>✓</td><td>✓</td><td><strong>30.3</strong></td><td><strong>24.9</strong></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div class="anim">
+          <div class="highlight-bar">
+            <strong>关键发现：</strong>不共享 Object Query（SOQ）时性能暴跌至 24.4% AP，说明 query 对齐对分类蒸馏至关重要。
+          </div>
+        </div>
+        <div class="anim" style="margin-top: 1.5vh;">
+          <div class="card" style="background: rgba(19,40,67,0.03);">
+            <div class="card-title">划分方式消融（Table 5）</div>
+            <p class="card-text">
+              [1,30) ∪ [30,−) 取得最佳性能（30.3% AP）<br>
+              多于两步的划分导致更严重的灾难性遗忘
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== SLIDE 13: MORE ABLATION & CONCLUSION ==================== -->
+  <div class="slide" data-index="12">
+    <div class="glow glow-purple" style="top: -5%; right: -3%;"></div>
+    <h2 class="slide-title anim">更多消融与总结</h2>
+    <div class="two-col">
+      <div>
+        <div class="anim">
+          <div class="card" style="margin-bottom: 1.5vh;">
+            <div class="card-title" style="text-align: center; margin-bottom: 0.8em;">Exemplar 数量消融</div>
+            <table class="data-table">
+              <thead>
+                <tr><th>N<sub>ex</sub> Head</th><th>N<sub>ex</sub> Tail</th><th>AP</th><th>AP<sub>r</sub></th></tr>
+              </thead>
+              <tbody>
+                <tr><td>100</td><td>30</td><td>30.1</td><td>25.0</td></tr>
+                <tr class="highlight-row"><td>200</td><td>30</td><td><strong>30.3</strong></td><td><strong>24.9</strong></td></tr>
+                <tr><td>300</td><td>30</td><td>30.0</td><td>24.6</td></tr>
+                <tr><td>200</td><td>10</td><td>30.2</td><td>24.7</td></tr>
+                <tr><td>200</td><td>50</td><td>30.2</td><td>25.0</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div class="anim">
+          <div class="card" style="margin-bottom: 1.5vh;">
+            <div class="card-title">Step-wise RFS 消融（Table 8）</div>
+            <table class="data-table">
+              <thead>
+                <tr><th>Method</th><th>AP</th><th>AP<sub>r</sub></th></tr>
+              </thead>
+              <tbody>
+                <tr><td>Ours w/o step-wise RFS</td><td>29.6</td><td>19.0</td></tr>
+                <tr class="highlight-row"><td>Ours</td><td><strong>30.3</strong></td><td><strong>24.9</strong></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+      <div>
+        <div class="anim">
+          <div class="card" style="border-left: 4px solid #27ae60; margin-bottom: 1.2vh;">
+            <div class="card-title" style="color: #27ae60;">核心结论</div>
+            <ul class="bullet-list">
+              <li class="accent">Smooth-tail 数据有效缓解了极端类别不平衡</li>
+              <li class="accent">逐步学习框架统一了微调与知识迁移</li>
+              <li class="accent">在 LVIS v0.5 和 v1.0 上均达到 SOTA</li>
+              <li class="accent">稀有类别检测精度提升最为显著</li>
+            </ul>
+          </div>
+        </div>
+        <div class="anim">
+          <div class="card" style="border-left: 4px solid #ff6b6b; margin-bottom: 1.2vh;">
+            <div class="card-title" style="color: #c0392b;">局限性与观察</div>
+            <ul class="bullet-list">
+              <li class="accent">频繁类别 AP<sub>f</sub> 略有下降（31.6 → 30.9）</li>
+              <li class="accent">可能因 D<sub>tail</sub> 中频繁类代表性不足</li>
+              <li class="accent">D<sub>head</sub> 中平衡 head 类也可能导致频繁类欠表示</li>
+            </ul>
+          </div>
+        </div>
+        <div class="anim">
+          <div class="quote-block">
+            该方法简单而有效，通过预训练保留全类别判别力，再分步微调与知识迁移，实现了对长尾数据的优雅处理。
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== SLIDE 14: END ==================== -->
+  <div class="slide" data-index="13">
+    <div class="glow glow-blue" style="top: 50%; left: 50%; transform: translate(-50%, -50%);"></div>
+    <div style="flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center;">
+      <h2 class="slide-title anim" style="color: #3966A2; font-size: clamp(2rem, 4vw, 3.2rem);">总结与展望</h2>
+      <div class="anim" style="margin: 2vh 0;">
+        <div style="width: 60px; height: 3px; background: linear-gradient(90deg, #3966A2, #6191D3); margin: 0 auto; border-radius: 2px;"></div>
+      </div>
+      <div class="anim" style="max-width: 680px; margin: 0 auto;">
+        <p class="slide-subtitle" style="text-align: center; max-width: 680px;">
+          本文提出了一种基于平滑尾部数据的逐步学习框架，通过预训练、微调和知识迁移三阶段策略，在长尾目标检测任务上取得了显著的性能提升，尤其在稀有类别上表现突出。
+        </p>
+      </div>
+      <div class="anim" style="margin-top: 3vh;">
+        <div style="display: flex; gap: 12px; justify-content: center; flex-wrap: wrap;">
+          <span class="cover-tag">Smooth-tail Data</span>
+          <span class="cover-tag">Step-wise Learning</span>
+          <span class="cover-tag">Knowledge Distillation</span>
+        </div>
+      </div>
+      <div class="anim" style="margin-top: 3vh;">
+        <p style="font-size: clamp(0.9rem, 1.4vw, 1.1rem); color: #8a9bb5;">
+          感谢观看
+        </p>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ========== PROGRESS BAR ========== -->
+<div class="progress-bar" id="progressBar"></div>
+
+<!-- ========== BOTTOM CONTROLS ========== -->
+<div class="controls">
+  <button id="prevBtn" aria-label="上一页">&#8592;</button>
+  <span class="page-counter" id="pageCounter">1 / 14</span>
+  <button id="nextBtn" aria-label="下一页">&#8594;</button>
+</div>
+
+<!-- ========== RIGHT DOTS ========== -->
+<div class="dots-nav" id="dotsNav"></div>
+
+<script>
+(function() {
+  var slides = document.querySelectorAll('.slide');
+  var totalSlides = slides.length;
+  var currentIndex = 0;
+  var isTransitioning = false;
+  var progressBar = document.getElementById('progressBar');
+  var prevBtn = document.getElementById('prevBtn');
+  var nextBtn = document.getElementById('nextBtn');
+  var pageCounter = document.getElementById('pageCounter');
+  var dotsNav = document.getElementById('dotsNav');
+  for (var i = 0; i < totalSlides; i++) {
+    var dot = document.createElement('div');
+    dot.className = 'dot' + (i === 0 ? ' active' : '');
+    dot.setAttribute('data-index', i);
+    dot.addEventListener('click', function() {
+      var idx = parseInt(this.getAttribute('data-index'), 10);
+      goToSlide(idx);
+    });
+    dotsNav.appendChild(dot);
+  }
+  var dots = dotsNav.querySelectorAll('.dot');
+  function updateUI() {
+    var progress = ((currentIndex + 1) / totalSlides) * 100;
+    progressBar.style.width = progress + '%';
+    pageCounter.textContent = (currentIndex + 1) + ' / ' + totalSlides;
+    prevBtn.disabled = currentIndex === 0;
+    nextBtn.disabled = currentIndex === totalSlides - 1;
+    for (var i = 0; i < dots.length; i++) {
+      if (i === currentIndex) { dots[i].classList.add('active'); }
+      else { dots[i].classList.remove('active'); }
+    }
+  }
+  function goToSlide(index) {
+    if (index === currentIndex || isTransitioning) return;
+    if (index < 0 || index >= totalSlides) return;
+    isTransitioning = true;
+    var oldSlide = slides[currentIndex];
+    var newSlide = slides[index];
+    oldSlide.classList.remove('active');
+    oldSlide.classList.add('exit-up');
+    newSlide.classList.add('active');
+    currentIndex = index;
+    updateUI();
+    setTimeout(function() {
+      oldSlide.classList.remove('exit-up');
+      isTransitioning = false;
+    }, 650);
+  }
+  function nextSlide() {
+    if (currentIndex < totalSlides - 1) { goToSlide(currentIndex + 1); }
+  }
+  function prevSlide() {
+    if (currentIndex > 0) { goToSlide(currentIndex - 1); }
+  }
+  prevBtn.addEventListener('click', prevSlide);
+  nextBtn.addEventListener('click', nextSlide);
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'ArrowRight' || e.key === 'ArrowDown' || e.key === ' ') {
+      e.preventDefault(); nextSlide();
+    } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+      e.preventDefault(); prevSlide();
+    } else if (e.key === 'Home') {
+      e.preventDefault(); goToSlide(0);
+    } else if (e.key === 'End') {
+      e.preventDefault(); goToSlide(totalSlides - 1);
+    }
+  });
+  var touchStartX = 0, touchStartY = 0;
+  document.addEventListener('touchstart', function(e) {
+    touchStartX = e.changedTouches[0].screenX;
+    touchStartY = e.changedTouches[0].screenY;
+  }, { passive: true });
+  document.addEventListener('touchend', function(e) {
+    var deltaX = e.changedTouches[0].screenX - touchStartX;
+    var deltaY = e.changedTouches[0].screenY - touchStartY;
+    if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > 50) {
+      if (deltaX < 0) { nextSlide(); } else { prevSlide(); }
+    }
+  }, { passive: true });
+  updateUI();
+})();
+</script>
+
+</body>
+</html>

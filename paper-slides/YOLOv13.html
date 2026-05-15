@@ -1,0 +1,957 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="icon" href="../assets/favicon.png" type="image/png" />
+<title>YOLOv13 论文精读</title>
+<style>
+  *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --primary: #3966A2;
+    --accent: #132843;
+    --secondary: #6191D3;
+    --bg: #ffffff;
+    --text: #000000;
+    --light-bg: #f5f7fa;
+    --border: #e2e8f0;
+    --card-shadow: 0 2px 12px rgba(0,0,0,0.06);
+  }
+
+  body {
+    font-family: 'Inter', 'Noto Sans SC', -apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+    background: #0a0a0a;
+    overflow: hidden;
+    height: 100vh;
+    width: 100vw;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .presentation {
+    width: 100vw;
+    height: 100vh;
+    position: relative;
+    overflow: hidden;
+    background: var(--bg);
+  }
+
+  /* Progress Bar */
+  .progress-bar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    height: 3px;
+    background: linear-gradient(90deg, var(--primary), var(--secondary));
+    transition: width 0.4s ease;
+    z-index: 100;
+  }
+
+  /* Slides */
+  .slide {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 5vh 7vw;
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(30px);
+    transition: opacity 0.5s ease, transform 0.5s ease, visibility 0.5s ease;
+  }
+
+  .slide.active {
+    opacity: 1 !important;
+    visibility: visible !important;
+    transform: translateY(0) !important;
+  }
+
+  .slide.exit-up {
+    transform: translateY(-30px) !important;
+  }
+
+  /* Typography */
+  h1 {
+    font-size: clamp(2rem, 4vw, 3.2rem);
+    font-weight: 800;
+    color: var(--primary);
+    line-height: 1.2;
+    margin-bottom: 0.5em;
+  }
+
+  h2 {
+    font-size: clamp(1.5rem, 3vw, 2.4rem);
+    font-weight: 700;
+    color: var(--primary);
+    line-height: 1.3;
+    margin-bottom: 0.6em;
+  }
+
+  h3 {
+    font-size: clamp(1.1rem, 2vw, 1.5rem);
+    font-weight: 600;
+    color: var(--accent);
+    margin-bottom: 0.4em;
+  }
+
+  p, li {
+    font-size: clamp(0.85rem, 1.4vw, 1.1rem);
+    color: var(--text);
+    line-height: 1.7;
+    font-weight: 400;
+  }
+
+  strong { color: var(--accent); font-weight: 600; }
+
+  /* Cover Slide */
+  .cover-slide {
+    text-align: center;
+    align-items: center;
+    background: linear-gradient(135deg, #f0f4fa 0%, #ffffff 50%, #e8eef8 100%);
+  }
+
+  .cover-slide h1 {
+    font-size: clamp(2.2rem, 5vw, 4rem);
+    margin-bottom: 0.3em;
+  }
+
+  .cover-slide .subtitle {
+    font-size: clamp(1rem, 2vw, 1.4rem);
+    color: var(--secondary);
+    font-weight: 500;
+    margin-bottom: 1.5em;
+  }
+
+  .cover-tags {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+
+  .badge {
+    display: inline-block;
+    padding: 6px 18px;
+    border-radius: 20px;
+    font-size: clamp(0.7rem, 1vw, 0.85rem);
+    font-weight: 500;
+    background: var(--primary);
+    color: #fff;
+  }
+
+  .badge.secondary {
+    background: var(--secondary);
+  }
+
+  .cover-meta {
+    margin-top: 2em;
+    font-size: clamp(0.75rem, 1.1vw, 0.9rem);
+    color: #666;
+  }
+
+  /* Grid Layouts */
+  .two-col {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: clamp(20px, 3vw, 50px);
+    align-items: start;
+  }
+
+  .three-col {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: clamp(16px, 2.5vw, 36px);
+    align-items: start;
+  }
+
+  .four-col {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: clamp(12px, 2vw, 24px);
+    align-items: start;
+  }
+
+  /* Cards */
+  .card {
+    background: var(--light-bg);
+    border-radius: 12px;
+    padding: clamp(16px, 2vw, 28px);
+    box-shadow: var(--card-shadow);
+    border: 1px solid var(--border);
+  }
+
+  .card h3 {
+    margin-bottom: 0.6em;
+    font-size: clamp(0.95rem, 1.6vw, 1.2rem);
+  }
+
+  .card p, .card li {
+    font-size: clamp(0.78rem, 1.2vw, 0.95rem);
+  }
+
+  /* Bullet List */
+  .bullet-list {
+    list-style: none;
+    padding: 0;
+  }
+
+  .bullet-list li {
+    position: relative;
+    padding-left: 1.4em;
+    margin-bottom: 0.5em;
+  }
+
+  .bullet-list li::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0.55em;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--primary);
+  }
+
+  /* Highlight Bar */
+  .highlight-bar {
+    background: linear-gradient(90deg, var(--primary), var(--secondary));
+    color: #fff;
+    padding: 12px 24px;
+    border-radius: 8px;
+    font-weight: 600;
+    font-size: clamp(0.9rem, 1.4vw, 1.1rem);
+    text-align: center;
+    margin: 1em 0;
+  }
+
+  /* Steps */
+  .steps {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .step {
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+  }
+
+  .step-num {
+    flex-shrink: 0;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: var(--primary);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 0.95rem;
+  }
+
+  .step-content h3 {
+    margin-bottom: 0.2em;
+  }
+
+  /* Table */
+  .data-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: clamp(0.7rem, 1.1vw, 0.88rem);
+    margin-top: 0.5em;
+  }
+
+  .data-table th {
+    background: var(--primary);
+    color: #fff;
+    padding: 8px 12px;
+    text-align: center;
+    font-weight: 600;
+  }
+
+  .data-table td {
+    padding: 7px 12px;
+    text-align: center;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .data-table tr:nth-child(even) td {
+    background: var(--light-bg);
+  }
+
+  .data-table .highlight-row td {
+    background: #e8f0fe;
+    font-weight: 600;
+    color: var(--accent);
+  }
+
+  /* Glow decorations */
+  .glow {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(80px);
+    opacity: 0.15;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .glow-blue {
+    width: 300px; height: 300px;
+    background: var(--primary);
+  }
+
+  .glow-purple {
+    width: 250px; height: 250px;
+    background: #7c3aed;
+  }
+
+  /* Section label */
+  .section-label {
+    font-size: clamp(0.7rem, 1vw, 0.8rem);
+    color: var(--secondary);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    margin-bottom: 0.5em;
+  }
+
+  /* Controls */
+  .controls {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    z-index: 100;
+  }
+
+  .controls button {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    border: 1px solid var(--border);
+    background: #fff;
+    color: var(--primary);
+    font-size: 1.2rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  }
+
+  .controls button:hover {
+    background: var(--primary);
+    color: #fff;
+    border-color: var(--primary);
+  }
+
+  .page-counter {
+    font-size: 0.85rem;
+    color: #888;
+    font-weight: 500;
+    min-width: 60px;
+    text-align: center;
+  }
+
+  /* Dots */
+  .dots {
+    position: fixed;
+    right: 20px;
+    top: 50%;
+    transform: translateY(-50%);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    z-index: 100;
+  }
+
+  .dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #ccc;
+    cursor: pointer;
+    transition: all 0.3s;
+  }
+
+  .dot.active {
+    background: var(--primary);
+    transform: scale(1.4);
+  }
+
+  /* Animations */
+  .anim {
+    opacity: 0;
+    transform: translateY(20px);
+    transition: opacity 0.5s ease, transform 0.5s ease;
+  }
+
+  .slide.active .anim {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  .slide.active .anim:nth-child(1) { transition-delay: 0.1s; }
+  .slide.active .anim:nth-child(2) { transition-delay: 0.2s; }
+  .slide.active .anim:nth-child(3) { transition-delay: 0.3s; }
+  .slide.active .anim:nth-child(4) { transition-delay: 0.4s; }
+  .slide.active .anim:nth-child(5) { transition-delay: 0.5s; }
+
+  /* Architecture diagram */
+  .arch-flow {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin: 1em 0;
+  }
+
+  .arch-box {
+    padding: 10px 20px;
+    border-radius: 8px;
+    font-weight: 600;
+    font-size: clamp(0.75rem, 1.2vw, 0.95rem);
+    text-align: center;
+    color: #fff;
+  }
+
+  .arch-box.backbone { background: #2563eb; }
+  .arch-box.hyperace { background: #7c3aed; }
+  .arch-box.fullpad { background: #059669; }
+  .arch-box.neck { background: #d97706; }
+  .arch-box.head { background: #dc2626; }
+
+  .arch-arrow {
+    font-size: 1.4rem;
+    color: #999;
+    font-weight: 700;
+  }
+
+  /* Comparison highlight */
+  .metric-big {
+    font-size: clamp(1.8rem, 3.5vw, 2.8rem);
+    font-weight: 800;
+    color: var(--primary);
+    line-height: 1;
+  }
+
+  .metric-label {
+    font-size: clamp(0.7rem, 1vw, 0.85rem);
+    color: #888;
+    margin-top: 4px;
+  }
+
+  .metric-card {
+    text-align: center;
+    padding: clamp(12px, 2vw, 24px);
+  }
+
+  .vs-divider {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.2rem;
+    color: #ccc;
+    font-weight: 700;
+  }
+</style>
+</head>
+<body>
+
+<div class="presentation">
+  <div class="progress-bar" id="progressBar"></div>
+
+  <!-- Slide 1: Cover -->
+  <div class="slide cover-slide active" data-index="0">
+    <div class="glow glow-blue" style="top:-100px;left:-100px;"></div>
+    <div class="glow glow-purple" style="bottom:-80px;right:-80px;"></div>
+    <div class="section-label anim">Paper Reading</div>
+    <h1 class="anim">YOLOv13</h1>
+    <p class="subtitle anim">Real-Time Object Detection with<br>Hypergraph-Enhanced Adaptive Visual Perception</p>
+    <div class="cover-tags anim">
+      <span class="badge">目标检测</span>
+      <span class="badge secondary">超图计算</span>
+      <span class="badge">自适应相关性增强</span>
+      <span class="badge secondary">实时检测</span>
+    </div>
+    <p class="cover-meta anim">清华大学 · 北京理工大学 · 深圳大学 · 西安交通大学 · 香港科技大学（广州）<br>arXiv:2025 | IEEE</p>
+  </div>
+
+  <!-- Slide 2: Background & Motivation -->
+  <div class="slide" data-index="1">
+    <div class="glow glow-blue" style="top:-50px;right:-50px;"></div>
+    <div class="section-label anim">Background & Motivation</div>
+    <h2 class="anim">研究背景与动机</h2>
+    <div class="two-col" style="margin-top:1em;">
+      <div class="anim">
+        <div class="card" style="margin-bottom:16px;">
+          <h3>现有方法的局限</h3>
+          <ul class="bullet-list">
+            <li><strong>卷积架构</strong>（YOLO11及之前）：仅能在固定感受野内进行局部信息聚合</li>
+            <li><strong>自注意力机制</strong>（YOLOv12）：受限于计算成本，只能进行局部区域计算</li>
+            <li>自注意力本质上是<strong>成对像素相关性</strong>建模，无法捕获多对多的高阶关联</li>
+          </ul>
+        </div>
+      </div>
+      <div class="anim">
+        <div class="card">
+          <h3>核心挑战</h3>
+          <ul class="bullet-list">
+            <li>现有YOLO模型<strong>缺乏全局高阶语义关联</strong>建模能力</li>
+            <li>传统超图方法使用<strong>手工设定阈值</strong>构建超边，鲁棒性不足</li>
+            <li>复杂场景下检测性能存在<strong>瓶颈</strong></li>
+          </ul>
+        </div>
+        <div class="highlight-bar" style="margin-top:16px;">
+          目标：突破成对关联建模限制，实现全局高阶关联感知
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Slide 3: Core Contributions -->
+  <div class="slide" data-index="2">
+    <div class="glow glow-purple" style="bottom:-60px;left:-60px;"></div>
+    <div class="section-label anim">Core Contributions</div>
+    <h2 class="anim">核心贡献</h2>
+    <div class="three-col" style="margin-top:1em;">
+      <div class="card anim">
+        <h3>🔬 HyperACE 机制</h3>
+        <p>基于自适应超图计算，<strong>自适应探索潜在高阶关联</strong>，实现跨位置、跨尺度特征融合与增强</p>
+      </div>
+      <div class="card anim">
+        <h3>🔄 FullPAD 范式</h3>
+        <p>全管线聚合-分发范式，将关联增强特征分发到<strong>Backbone、Neck、Head</strong>全流程，实现细粒度信息流</p>
+      </div>
+      <div class="card anim">
+        <h3>⚡ DS 系列轻量化模块</h3>
+        <p>基于深度可分离卷积设计轻量化模块，<strong>参数量减少30%</strong>，GFLOPs减少28%，精度几乎无损</p>
+      </div>
+    </div>
+    <div class="highlight-bar anim" style="margin-top:24px;">
+      YOLOv13-N 相比 YOLOv12-N 提升 AP<sub>50:95</sub> 1.5% | 相比 YOLO11-N 提升 3.0%
+    </div>
+  </div>
+
+  <!-- Slide 4: Overall Architecture -->
+  <div class="slide" data-index="3">
+    <div class="glow glow-blue" style="top:-40px;left:-40px;"></div>
+    <div class="section-label anim">Architecture</div>
+    <h2 class="anim">YOLOv13 整体架构</h2>
+    <div class="arch-flow anim" style="margin-top:1.5em;">
+      <div class="arch-box backbone">Input</div>
+      <span class="arch-arrow">→</span>
+      <div class="arch-box backbone">Backbone<br>(DS-C3k2)</div>
+      <span class="arch-arrow">→</span>
+      <div class="arch-box hyperace">HyperACE<br>高阶关联建模</div>
+      <span class="arch-arrow">→</span>
+      <div class="arch-box fullpad">FullPAD<br>三条隧道分发</div>
+      <span class="arch-arrow">→</span>
+      <div class="arch-box neck">Neck<br>(DS-C3k2)</div>
+      <span class="arch-arrow">→</span>
+      <div class="arch-box head">Detect Head</div>
+    </div>
+    <div class="two-col" style="margin-top:2em;">
+      <div class="card anim">
+        <h3>Backbone 阶段</h3>
+        <ul class="bullet-list">
+          <li>提取多尺度特征图 B₁, B₂, B₃, B₄, B₅</li>
+          <li>使用 <strong>DS-C3k2</strong> 替代大核卷积，实现轻量化</li>
+        </ul>
+      </div>
+      <div class="card anim">
+        <h3>FullPAD 三条分发隧道</h3>
+        <ul class="bullet-list">
+          <li><strong>Tunnel 1</strong>：Backbone ↔ Neck 连接处</li>
+          <li><strong>Tunnel 2</strong>：Neck 内部层间</li>
+          <li><strong>Tunnel 3</strong>：Neck ↔ Head 连接处</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- Slide 5: HyperACE Mechanism -->
+  <div class="slide" data-index="4">
+    <div class="glow glow-purple" style="top:-50px;right:-50px;"></div>
+    <div class="section-label anim">Core Module</div>
+    <h2 class="anim">HyperACE：超图自适应关联增强</h2>
+    <div class="two-col" style="margin-top:1em;">
+      <div class="anim">
+        <h3>双分支并行设计</h3>
+        <div class="card" style="margin-bottom:12px;">
+          <h3>🌐 高阶感知分支（C3AH）</h3>
+          <ul class="bullet-list">
+            <li>基于<strong>自适应超图计算</strong>建模全局高阶关联</li>
+            <li>K个并行C3AH模块探索不同潜在关联</li>
+            <li>线性复杂度的消息传递机制</li>
+          </ul>
+        </div>
+        <div class="card">
+          <h3>📍 低阶感知分支（DS-C3k）</h3>
+          <ul class="bullet-list">
+            <li>L层堆叠DS-C3k模块捕获局部细粒度信息</li>
+            <li>保留原始视觉信息的<strong>捷径连接</strong></li>
+          </ul>
+        </div>
+      </div>
+      <div class="anim">
+        <div class="card">
+          <h3>自适应超图计算流程</h3>
+          <div class="steps">
+            <div class="step">
+              <div class="step-num">1</div>
+              <div class="step-content">
+                <h3>自适应超边生成</h3>
+                <p>全局池化 → 可学习原型 → 多头相似度 → 连续参与矩阵 A ∈ [0,1]<sup>N×M</sup></p>
+              </div>
+            </div>
+            <div class="step">
+              <div class="step-num">2</div>
+              <div class="step-content">
+                <h3>超图卷积</h3>
+                <p>超边聚合（V→E）→ 线性投影 → 超边分发（E→V）→ 特征更新</p>
+              </div>
+            </div>
+            <div class="step">
+              <div class="step-num">3</div>
+              <div class="step-content">
+                <h3>特征融合</h3>
+                <p>高阶 + 低阶 + 捷径三分支拼接 → 1×1卷积融合输出</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Slide 6: Adaptive Hypergraph Detail -->
+  <div class="slide" data-index="5">
+    <div class="glow glow-blue" style="bottom:-50px;right:-80px;"></div>
+    <div class="section-label anim">Technical Detail</div>
+    <h2 class="anim">自适应超图计算：关键创新</h2>
+    <div class="two-col" style="margin-top:1em;">
+      <div class="anim">
+        <div class="card">
+          <h3>传统超图 vs 自适应超图</h3>
+          <ul class="bullet-list">
+            <li><strong>传统方法</strong>：手工阈值判定相关性，使用二值关联矩阵 H ∈ {0,1}<sup>N×M</sup></li>
+            <li><strong>本文方法</strong>：自适应学习参与度，使用连续参与矩阵 A ∈ [0,1]<sup>N×M</sup></li>
+          </ul>
+          <div class="highlight-bar" style="margin-top:12px;">
+            每个超边连接所有顶点，每个顶点以连续可微的贡献度参与
+          </div>
+        </div>
+      </div>
+      <div class="anim">
+        <div class="card">
+          <h3>核心公式</h3>
+          <ul class="bullet-list">
+            <li><strong>全局原型</strong>：P = P₀ + ϕ(f<sub>ctx</sub>)，动态偏移 + 可学习原型</li>
+            <li><strong>多头相似度</strong>：s̄<sub>i,m</sub> = 平均(⟨ẑ<sub>i</sub><sup>τ</sup>, p̂<sub>m</sub><sup>τ</sup>⟩ / √d<sub>h</sub>)</li>
+            <li><strong>参与矩阵</strong>：A<sub>i,m</sub> = exp(s̄<sub>i,m</sub>) / Σ<sub>j</sub> exp(s̄<sub>j,m</sub>)</li>
+            <li><strong>超图卷积</strong>：f<sub>m</sub> = σ(W<sub>e</sub> Σ<sub>i</sub> A<sub>i,m</sub> x<sub>i</sub>)，x<sub>i</sub> = σ(W<sub>v</sub> Σ<sub>m</sub> A<sub>i,m</sub> f<sub>m</sub>)</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Slide 7: DS Lightweight Blocks -->
+  <div class="slide" data-index="6">
+    <div class="glow glow-purple" style="top:-60px;left:-60px;"></div>
+    <div class="section-label anim">Lightweight Design</div>
+    <h2 class="anim">DS 系列轻量化模块</h2>
+    <div class="four-col" style="margin-top:1.5em;">
+      <div class="card anim">
+        <h3>DSConv</h3>
+        <p>深度可分离卷积 + BN + SiLU，作为基础构建单元</p>
+      </div>
+      <div class="card anim">
+        <h3>DS-Bottleneck</h3>
+        <p>3×3 DSConv + k×k 大核 DSConv 级联，可选残差连接</p>
+      </div>
+      <div class="card anim">
+        <h3>DS-C3k</h3>
+        <p>CSP-C3 结构 + DS-Bottleneck，用于HyperACE低阶分支</p>
+      </div>
+      <div class="card anim">
+        <h3>DS-C3k2</h3>
+        <p>C3k2 结构 + DS-C3k 模块，Backbone/Neck 基础模块</p>
+      </div>
+    </div>
+    <div class="highlight-bar anim" style="margin-top:24px;">
+      参数量减少高达 30% | GFLOPs 减少高达 28% | 精度损失仅 0.1% AP<sub>50</sub>
+    </div>
+  </div>
+
+  <!-- Slide 8: Experimental Results -->
+  <div class="slide" data-index="7">
+    <div class="glow glow-blue" style="top:-40px;right:-40px;"></div>
+    <div class="section-label anim">Experimental Results</div>
+    <h2 class="anim">MS COCO 数据集对比结果</h2>
+    <div class="anim" style="margin-top:0.5em;">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>模型</th>
+            <th>FLOPs (G)</th>
+            <th>参数 (M)</th>
+            <th>AP<sub>50:95</sub></th>
+            <th>AP<sub>50</sub></th>
+            <th>AP<sub>75</sub></th>
+            <th>延迟 (ms)</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>YOLO11-N</td><td>6.5</td><td>2.6</td><td>38.6</td><td>54.2</td><td>41.6</td><td>1.53</td>
+          </tr>
+          <tr>
+            <td>YOLOv12-N</td><td>6.5</td><td>2.6</td><td>40.1</td><td>56.0</td><td>43.4</td><td>1.83</td>
+          </tr>
+          <tr class="highlight-row">
+            <td>YOLOv13-N</td><td>6.4</td><td>2.5</td><td>41.6</td><td>57.8</td><td>45.1</td><td>1.97</td>
+          </tr>
+          <tr>
+            <td>YOLO11-S</td><td>21.5</td><td>9.4</td><td>45.8</td><td>62.6</td><td>49.8</td><td>2.56</td>
+          </tr>
+          <tr>
+            <td>YOLOv12-S</td><td>21.4</td><td>9.3</td><td>47.1</td><td>64.2</td><td>51.0</td><td>2.82</td>
+          </tr>
+          <tr class="highlight-row">
+            <td>YOLOv13-S</td><td>20.8</td><td>9.0</td><td>48.0</td><td>65.2</td><td>52.0</td><td>2.98</td>
+          </tr>
+          <tr>
+            <td>YOLOv12-L</td><td>88.9</td><td>26.4</td><td>53.0</td><td>70.0</td><td>57.9</td><td>7.10</td>
+          </tr>
+          <tr class="highlight-row">
+            <td>YOLOv13-L</td><td>88.4</td><td>27.6</td><td>53.4</td><td>70.9</td><td>58.1</td><td>8.63</td>
+          </tr>
+          <tr>
+            <td>YOLOv12-X</td><td>199.0</td><td>59.1</td><td>54.4</td><td>71.1</td><td>59.3</td><td>12.46</td>
+          </tr>
+          <tr class="highlight-row">
+            <td>YOLOv13-X</td><td>199.2</td><td>64.0</td><td>54.8</td><td>72.0</td><td>59.8</td><td>14.67</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Slide 9: Key Metrics -->
+  <div class="slide" data-index="8">
+    <div class="glow glow-purple" style="bottom:-60px;left:-60px;"></div>
+    <div class="section-label anim">Key Improvements</div>
+    <h2 class="anim">关键性能提升</h2>
+    <div class="three-col" style="margin-top:1.5em;">
+      <div class="card metric-card anim">
+        <div class="metric-big">+1.5%</div>
+        <div class="metric-label">AP<sub>50:95</sub> vs YOLOv12-N</div>
+        <p style="margin-top:8px;font-size:clamp(0.75rem,1.1vw,0.9rem);color:#666;">Nano 模型提升最显著<br>FLOPs 仅 6.4G</p>
+      </div>
+      <div class="card metric-card anim">
+        <div class="metric-big">+3.0%</div>
+        <div class="metric-label">AP<sub>50:95</sub> vs YOLO11-N</div>
+        <p style="margin-top:8px;font-size:clamp(0.75rem,1.1vw,0.9rem);color:#666;">参数量更少 (2.5M)<br>更准确、更轻量</p>
+      </div>
+      <div class="card metric-card anim">
+        <div class="metric-big">-65.3%</div>
+        <div class="metric-label">FLOPs vs RT-DETRv2-R18</div>
+        <p style="margin-top:8px;font-size:clamp(0.75rem,1.1vw,0.9rem);color:#666;">AP<sub>50:95</sub> 仍领先 0.1%<br>参数减少 55%</p>
+      </div>
+    </div>
+    <div class="two-col" style="margin-top:24px;">
+      <div class="card anim">
+        <h3>跨域泛化能力（COCO→VOC）</h3>
+        <ul class="bullet-list">
+          <li>YOLOv13-N: AP<sub>50:95</sub> = 65.3%（vs YOLOv12-N: 64.3%）</li>
+          <li>YOLOv13-S: AP<sub>50:95</sub> = 70.1%（vs YOLOv12-S: 69.7%）</li>
+        </ul>
+      </div>
+      <div class="card anim">
+        <h3>推理速度</h3>
+        <ul class="bullet-list">
+          <li>YOLOv13-N: RTX 4090 上 <strong>1.25ms</strong>，T4 上 <strong>1.97ms</strong></li>
+          <li>YOLOv13-N: CPU 上 <strong>25 FPS</strong></li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- Slide 10: Ablation Study -->
+  <div class="slide" data-index="9">
+    <div class="glow glow-blue" style="top:-50px;right:-50px;"></div>
+    <div class="section-label anim">Ablation Study</div>
+    <h2 class="anim">消融实验</h2>
+    <div class="two-col" style="margin-top:1em;">
+      <div class="anim">
+        <div class="card" style="margin-bottom:16px;">
+          <h3>FullPAD 分发位置影响</h3>
+          <table class="data-table">
+            <thead><tr><th>Backbone-Neck</th><th>In-Neck</th><th>Neck-Head</th><th>AP<sub>50:95</sub></th></tr></thead>
+            <tbody>
+              <tr><td>✘</td><td>✘</td><td>✘</td><td>47.1</td></tr>
+              <tr><td>✔</td><td>✘</td><td>✘</td><td>47.8</td></tr>
+              <tr><td>✘</td><td>✔</td><td>✘</td><td>47.6</td></tr>
+              <tr><td>✘</td><td>✘</td><td>✔</td><td>47.7</td></tr>
+              <tr class="highlight-row"><td>✔</td><td>✔</td><td>✔</td><td>48.0</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="anim">
+        <div class="card" style="margin-bottom:16px;">
+          <h3>超边数量 M 的影响</h3>
+          <table class="data-table">
+            <thead><tr><th>M</th><th>FLOPs</th><th>Param</th><th>AP<sub>50:95</sub></th></tr></thead>
+            <tbody>
+              <tr><td>2</td><td>20.4</td><td>8.6</td><td>47.8</td></tr>
+              <tr><td>4</td><td>20.5</td><td>8.8</td><td>47.9</td></tr>
+              <tr class="highlight-row"><td>8</td><td>20.8</td><td>9.0</td><td>48.0</td></tr>
+              <tr><td>16</td><td>21.5</td><td>9.6</td><td>48.1</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="card">
+          <h3>DS 模块效果</h3>
+          <p>替换为普通卷积：AP<sub>50:95</sub> 仅降 0.1%，但 FLOPs 增加 1.1~4.2G，参数增加 0.6~2.2M</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Slide 11: Hyperedge Visualization -->
+  <div class="slide" data-index="10">
+    <div class="glow glow-purple" style="top:-40px;left:-40px;"></div>
+    <div class="section-label anim">Visualization</div>
+    <h2 class="anim">自适应超边可视化</h2>
+    <div class="three-col" style="margin-top:1.5em;">
+      <div class="card anim">
+        <h3>超边 1：前景物体间关联</h3>
+        <p>建模<strong>多个前景目标</strong>之间的高阶交互，如滑雪者与滑雪杖之间的关联</p>
+      </div>
+      <div class="card anim">
+        <h3>超边 2：场景内元素关联</h3>
+        <p>捕获<strong>场景内多个元素</strong>的关联，如多辆车与多个交通灯之间的协同关系</p>
+      </div>
+      <div class="card anim">
+        <h3>超边 3：前景-背景关联</h3>
+        <p>建模<strong>前景物体与背景场景</strong>之间的关联，如网球拍与网球场、棒球手套与棒球场的关联</p>
+      </div>
+    </div>
+    <div class="highlight-bar anim" style="margin-top:24px;">
+      HyperACE 能够自适应学习场景中潜在的多对多高阶视觉关联，而非仅依赖低阶成对关联
+    </div>
+  </div>
+
+  <!-- Slide 12: Conclusion -->
+  <div class="slide" data-index="11">
+    <div class="glow glow-blue" style="bottom:-80px;right:-80px;"></div>
+    <div class="glow glow-purple" style="top:-60px;left:-60px;"></div>
+    <div class="section-label anim">Conclusion</div>
+    <h2 class="anim">总结与展望</h2>
+    <div class="two-col" style="margin-top:1em;">
+      <div class="anim">
+        <div class="card">
+          <h3>核心总结</h3>
+          <ul class="bullet-list">
+            <li>提出 <strong>HyperACE</strong>：首个用于目标检测的自适应超图关联增强机制</li>
+            <li>提出 <strong>FullPAD</strong>：全管线聚合-分发范式，实现细粒度信息流</li>
+            <li>提出 <strong>DS 系列模块</strong>：深度可分离卷积轻量化设计</li>
+            <li>在 MS COCO 上<strong>全面超越</strong>所有先前YOLO版本</li>
+            <li>轻量化变体（N/S）<strong>优势最显著</strong>，符合YOLO系列"更准、更快、更轻"目标</li>
+          </ul>
+        </div>
+      </div>
+      <div class="anim">
+        <div class="card">
+          <h3>关键数据</h3>
+          <ul class="bullet-list">
+            <li>YOLOv13-N: AP<sub>50:95</sub> <strong>41.6%</strong>，参数仅 <strong>2.5M</strong></li>
+            <li>YOLOv13-S: AP<sub>50:95</sub> <strong>48.0%</strong>，延迟 <strong>&lt;3ms</strong> (T4)</li>
+            <li>YOLOv13-X: AP<sub>50:95</sub> <strong>54.8%</strong>，SOTA 性能</li>
+          </ul>
+        </div>
+        <div class="card" style="margin-top:16px;">
+          <h3>开源地址</h3>
+          <p style="color:var(--secondary);font-weight:500;">github.com/iMoonLab/yolov13</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Controls -->
+  <div class="controls">
+    <button onclick="prevSlide()">◀</button>
+    <span class="page-counter" id="pageCounter">1 / 12</span>
+    <button onclick="nextSlide()">▶</button>
+  </div>
+
+  <!-- Dots -->
+  <div class="dots" id="dots"></div>
+</div>
+
+<script>
+  const slides = document.querySelectorAll('.slide');
+  const totalSlides = slides.length;
+  let currentSlide = 0;
+
+  // Create dots
+  const dotsContainer = document.getElementById('dots');
+  for (let i = 0; i < totalSlides; i++) {
+    const dot = document.createElement('div');
+    dot.className = 'dot' + (i === 0 ? ' active' : '');
+    dot.onclick = () => goToSlide(i);
+    dotsContainer.appendChild(dot);
+  }
+
+  function updateSlide() {
+    slides.forEach((slide, i) => {
+      slide.classList.remove('active', 'exit-up');
+      if (i === currentSlide) {
+        slide.classList.add('active');
+      } else if (i < currentSlide) {
+        slide.classList.add('exit-up');
+      }
+    });
+    document.getElementById('pageCounter').textContent = (currentSlide + 1) + ' / ' + totalSlides;
+    document.getElementById('progressBar').style.width = ((currentSlide + 1) / totalSlides * 100) + '%';
+    document.querySelectorAll('.dot').forEach((dot, i) => {
+      dot.classList.toggle('active', i === currentSlide);
+    });
+  }
+
+  function nextSlide() {
+    if (currentSlide < totalSlides - 1) { currentSlide++; updateSlide(); }
+  }
+
+  function prevSlide() {
+    if (currentSlide > 0) { currentSlide--; updateSlide(); }
+  }
+
+  function goToSlide(index) {
+    currentSlide = index;
+    updateSlide();
+  }
+
+  // Keyboard navigation
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowRight' || e.key === ' ') { e.preventDefault(); nextSlide(); }
+    if (e.key === 'ArrowLeft') { e.preventDefault(); prevSlide(); }
+  });
+</script>
+
+</body>
+</html>

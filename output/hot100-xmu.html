@@ -1,0 +1,1239 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LeetCode Hot 100 渐进式扫盲手册 - 汇报PPT</title>
+<style>
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+:root {
+  --bg: #ffffff;
+  --text: #000000;
+  --title: #3966A2;
+  --accent: #132843;
+  --secondary: #6191D3;
+  --muted: #5d6d82;
+  --line: rgba(57, 102, 162, 0.16);
+  --line-strong: rgba(57, 102, 162, 0.26);
+  --card: #f7fafe;
+  --card-strong: #edf4ff;
+  --shadow: 0 18px 42px rgba(19, 40, 67, 0.10);
+}
+
+html {
+  font-size: 16px;
+  scroll-behavior: smooth;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Inter', 'Noto Sans SC', -apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  overflow: hidden;
+  height: 100vh;
+  user-select: none;
+}
+
+.deck {
+  position: relative;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  background: var(--bg);
+}
+
+.slide {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 5vh 7vw;
+  background: var(--bg);
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(36px) scale(0.985);
+  transition: opacity 0.55s cubic-bezier(.4,0,.2,1), transform 0.55s cubic-bezier(.4,0,.2,1), visibility 0.55s;
+  overflow: hidden;
+}
+
+.slide.active {
+  opacity: 1 !important;
+  visibility: visible !important;
+  transform: translateY(0) scale(1) !important;
+}
+
+.slide.exit-up {
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(-36px) scale(0.985);
+}
+
+.progress {
+  position: fixed;
+  top: 0;
+  left: 0;
+  height: 4px;
+  background: linear-gradient(90deg, var(--title), var(--secondary));
+  z-index: 100;
+  transition: width 0.45s ease;
+  border-radius: 0 4px 4px 0;
+}
+
+.controls {
+  position: fixed;
+  bottom: 28px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 8px 18px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: rgba(255,255,255,0.92);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  box-shadow: var(--shadow);
+  z-index: 100;
+}
+
+.controls button {
+  width: 38px;
+  height: 38px;
+  border-radius: 999px;
+  border: none;
+  background: transparent;
+  color: var(--title);
+  font-size: 18px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease, transform 0.2s ease;
+}
+
+.controls button:hover {
+  background: var(--card-strong);
+  color: var(--accent);
+  transform: translateY(-1px);
+}
+
+.controls button:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+.controls button:disabled:hover {
+  background: transparent;
+  transform: none;
+}
+
+.counter {
+  min-width: 66px;
+  text-align: center;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--muted);
+  letter-spacing: 0.05em;
+  font-variant-numeric: tabular-nums;
+}
+
+.dots {
+  position: fixed;
+  right: 22px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  z-index: 100;
+}
+
+.dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: rgba(97, 145, 211, 0.35);
+  cursor: pointer;
+  transition: transform 0.2s ease, background 0.2s ease;
+}
+
+.dot.active {
+  background: var(--title);
+  transform: scale(1.65);
+}
+
+.dot:hover {
+  background: var(--secondary);
+}
+
+.hint {
+  position: fixed;
+  bottom: 82px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 12px;
+  color: var(--muted);
+  opacity: 1;
+  transition: opacity 0.9s ease;
+  pointer-events: none;
+  z-index: 90;
+}
+
+.hint.hidden { opacity: 0; }
+
+.slide-label {
+  font-size: clamp(11px, 1vw, 14px);
+  letter-spacing: 0.26em;
+  text-transform: uppercase;
+  color: var(--secondary);
+  font-weight: 700;
+  margin-bottom: 12px;
+}
+
+h1 {
+  font-size: clamp(38px, 5vw, 68px);
+  line-height: 1.08;
+  font-weight: 800;
+  color: var(--title);
+  letter-spacing: -0.04em;
+}
+
+h2 {
+  font-size: clamp(28px, 3.2vw, 46px);
+  line-height: 1.18;
+  font-weight: 800;
+  color: var(--title);
+  letter-spacing: -0.03em;
+}
+
+h3 {
+  font-size: clamp(17px, 1.5vw, 24px);
+  line-height: 1.35;
+  font-weight: 700;
+  color: var(--accent);
+  margin-bottom: 8px;
+}
+
+.subtitle {
+  max-width: 860px;
+  margin-top: 18px;
+  font-size: clamp(16px, 1.45vw, 22px);
+  line-height: 1.72;
+  color: #243647;
+  font-weight: 450;
+}
+
+.body-text {
+  font-size: clamp(14px, 1.28vw, 18px);
+  line-height: 1.72;
+  color: #233446;
+  font-weight: 450;
+}
+
+.small-text {
+  font-size: clamp(12px, 1.05vw, 15px);
+  line-height: 1.65;
+  color: var(--muted);
+}
+
+.highlight {
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.secondary {
+  color: var(--secondary);
+}
+
+.divider {
+  width: 56px;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--title);
+  margin: 18px 0 12px;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  width: fit-content;
+  padding: 9px 16px;
+  border-radius: 999px;
+  border: 1px solid var(--line-strong);
+  background: rgba(97, 145, 211, 0.10);
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin-bottom: 28px;
+}
+
+.badge .dot-blue,
+.badge .dot-soft {
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.badge .dot-blue {
+  width: 8px;
+  height: 8px;
+  background: var(--title);
+}
+
+.badge .dot-soft {
+  width: 5px;
+  height: 5px;
+  background: var(--secondary);
+}
+
+.cover-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 28px;
+}
+
+.cover-tag {
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  color: var(--muted);
+  font-size: clamp(11px, 0.95vw, 14px);
+  font-weight: 600;
+}
+
+.card-grid {
+  display: grid;
+  gap: 16px;
+  margin-top: 22px;
+}
+
+.card-grid.cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.card-grid.cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.card-grid.cols-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+
+.card {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 22px;
+  padding: clamp(18px, 1.9vw, 30px);
+  box-shadow: 0 10px 24px rgba(57, 102, 162, 0.05);
+}
+
+.card.featured {
+  background: linear-gradient(180deg, #f7fbff 0%, #edf4ff 100%);
+  border-color: rgba(57, 102, 162, 0.24);
+}
+
+.card-num {
+  font-size: clamp(28px, 3vw, 42px);
+  line-height: 1;
+  color: rgba(57, 102, 162, 0.24);
+  font-weight: 800;
+  margin-bottom: 10px;
+}
+
+.meta-line {
+  margin-bottom: 10px;
+  font-size: 12px;
+  color: var(--secondary);
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.stats-row {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+  margin-top: 26px;
+}
+
+.stat-card {
+  background: linear-gradient(180deg, #ffffff 0%, #f7fafe 100%);
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  padding: 20px 22px;
+  box-shadow: 0 8px 18px rgba(57, 102, 162, 0.04);
+}
+
+.stat-value {
+  font-size: clamp(30px, 3vw, 46px);
+  line-height: 1;
+  font-weight: 800;
+  color: var(--title);
+}
+
+.stat-label {
+  margin-top: 9px;
+  font-size: 12px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--secondary);
+  font-weight: 700;
+}
+
+.stat-desc {
+  margin-top: 8px;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--muted);
+}
+
+.steps {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 14px;
+  margin-top: 24px;
+}
+
+.step {
+  position: relative;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  padding: 18px 16px;
+  min-height: 190px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.step-num {
+  font-size: 11px;
+  color: var(--secondary);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  font-weight: 800;
+}
+
+.highlight-bar {
+  margin-top: 18px;
+  padding: 18px 20px;
+  border-radius: 18px;
+  border: 1px solid rgba(57, 102, 162, 0.20);
+  background: linear-gradient(90deg, rgba(97,145,211,0.10), rgba(57,102,162,0.06));
+}
+
+.highlight-bar p {
+  font-size: clamp(14px, 1.22vw, 18px);
+  line-height: 1.7;
+  color: var(--accent);
+  font-weight: 500;
+}
+
+.quote-block {
+  margin-top: 24px;
+  padding: 18px 24px;
+  border-left: 4px solid var(--title);
+  border-radius: 0 16px 16px 0;
+  background: rgba(97, 145, 211, 0.08);
+  max-width: 860px;
+}
+
+.quote-block p {
+  font-size: clamp(15px, 1.3vw, 19px);
+  line-height: 1.75;
+  color: var(--accent);
+  font-weight: 500;
+}
+
+.bullet-list {
+  list-style: none;
+  margin-top: 12px;
+}
+
+.bullet-list li {
+  position: relative;
+  padding: 6px 0 6px 20px;
+  font-size: clamp(14px, 1.18vw, 17px);
+  line-height: 1.68;
+  color: #263a4c;
+}
+
+.bullet-list li::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 16px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--title);
+}
+
+.bullet-list .em {
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.split {
+  display: grid;
+  grid-template-columns: 1.15fr 0.85fr;
+  gap: 22px;
+  align-items: start;
+  margin-top: 20px;
+}
+
+.matrix-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  margin-top: 22px;
+}
+
+.matrix-card {
+  background: #ffffff;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  padding: 18px 20px;
+  box-shadow: 0 8px 18px rgba(57, 102, 162, 0.04);
+}
+
+.matrix-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.matrix-chip {
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(97,145,211,0.10);
+  border: 1px solid rgba(57,102,162,0.18);
+  color: var(--secondary);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.code-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  margin-top: 22px;
+}
+
+.code-card {
+  background: #f7fafe;
+  border: 1px solid rgba(57,102,162,0.16);
+  border-radius: 20px;
+  padding: 18px 18px 16px;
+}
+
+.code-title {
+  margin-bottom: 12px;
+  font-size: 12px;
+  color: var(--secondary);
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.code-card pre {
+  font-family: Consolas, 'SFMono-Regular', Menlo, Monaco, monospace;
+  font-size: clamp(11px, 0.95vw, 14px);
+  line-height: 1.58;
+  white-space: pre-wrap;
+  color: #14304f;
+}
+
+.code-note {
+  margin-top: 10px;
+  font-size: 12px;
+  line-height: 1.56;
+  color: var(--muted);
+}
+
+.vs-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+  margin-top: 20px;
+}
+
+.vs-col {
+  border-radius: 22px;
+  padding: 22px;
+  border: 1px solid var(--line);
+}
+
+.ppt-col {
+  background: #ffffff;
+}
+
+.html-col {
+  background: linear-gradient(180deg, #f7fbff 0%, #edf4ff 100%);
+  border-color: rgba(57,102,162,0.22);
+}
+
+.vs-tag {
+  display: inline-block;
+  width: fit-content;
+  margin-bottom: 12px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.ppt-col .vs-tag {
+  background: rgba(97,145,211,0.10);
+  color: var(--secondary);
+}
+
+.html-col .vs-tag {
+  background: rgba(57,102,162,0.12);
+  color: var(--accent);
+}
+
+.vs-col ul {
+  list-style: none;
+}
+
+.vs-col ul li {
+  position: relative;
+  padding: 5px 0 5px 18px;
+  font-size: clamp(14px, 1.14vw, 16px);
+  line-height: 1.64;
+  color: #263a4c;
+}
+
+.vs-col ul li::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 14px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--title);
+}
+
+.glow {
+  position: absolute;
+  border-radius: 50%;
+  pointer-events: none;
+  filter: blur(70px);
+  opacity: 0.14;
+}
+
+.glow.glow-purple {
+  background: rgba(97,145,211,0.55);
+}
+
+.glow.glow-yellow {
+  background: rgba(57,102,162,0.22);
+}
+
+.big-num {
+  position: absolute;
+  top: 26px;
+  right: 42px;
+  font-size: clamp(76px, 9vw, 132px);
+  font-weight: 800;
+  line-height: 1;
+  color: rgba(57, 102, 162, 0.08);
+}
+
+.end-card {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+}
+
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.slide.active .anim {
+  animation: fadeUp 0.52s ease both;
+}
+
+.slide.active .anim:nth-child(1) { animation-delay: 0.04s; }
+.slide.active .anim:nth-child(2) { animation-delay: 0.10s; }
+.slide.active .anim:nth-child(3) { animation-delay: 0.16s; }
+.slide.active .anim:nth-child(4) { animation-delay: 0.22s; }
+.slide.active .anim:nth-child(5) { animation-delay: 0.28s; }
+.slide.active .anim:nth-child(6) { animation-delay: 0.34s; }
+.slide.active .anim:nth-child(7) { animation-delay: 0.40s; }
+
+@media (max-width: 1180px) {
+  .stats-row, .steps, .card-grid.cols-4, .card-grid.cols-3, .split, .matrix-grid, .code-grid, .vs-row {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 920px) {
+  .slide {
+    padding: 4vh 5vw;
+    overflow-y: auto;
+  }
+
+  .stats-row, .steps, .card-grid.cols-2, .card-grid.cols-3, .card-grid.cols-4, .split, .matrix-grid, .code-grid, .vs-row {
+    grid-template-columns: 1fr;
+  }
+
+  .dots {
+    display: none;
+  }
+}
+</style>
+</head>
+<body>
+<div class="progress" id="progress"></div>
+<div class="dots" id="dots"></div>
+<div class="hint" id="hint">← →、空格或点击右侧圆点翻页</div>
+
+<div class="deck" id="deck">
+  <section class="slide">
+    <div class="glow glow-purple" style="width:340px;height:340px;top:-90px;left:-80px;"></div>
+    <div class="glow glow-yellow" style="width:380px;height:380px;right:-110px;bottom:-120px;"></div>
+    <div class="anim badge"><span class="dot-blue"></span>Algorithm Review Deck<span class="dot-soft"></span>Python / Hot 100</div>
+    <div class="anim">
+      <h1>LeetCode Hot 100<br>渐进式扫盲手册汇报</h1>
+    </div>
+    <p class="anim subtitle">这是一份面向互联网研发岗笔试准备的算法学习汇报稿。原始材料把 Hot 100 拆成 5 个阶段、18 个知识模块与一套可复用模板；这份 HTML PPT 的目标，是把长文内容压缩成一套能快速讲清学习路径、重点套路与冲刺节奏的展示版本。</p>
+    <div class="anim cover-meta">
+      <span class="cover-tag">5 个阶段</span>
+      <span class="cover-tag">18 个知识模块</span>
+      <span class="cover-tag">25-36 天首轮学习周期</span>
+      <span class="cover-tag">适合研究生笔试冲刺</span>
+    </div>
+  </section>
+
+  <section class="slide">
+    <div class="big-num">01</div>
+    <div class="anim slide-label">Overview</div>
+    <div class="anim"><h2>这份手册在解决什么问题</h2></div>
+    <div class="anim divider"></div>
+    <div class="anim card-grid cols-3">
+      <div class="card featured">
+        <div class="card-num">A</div>
+        <h3>目标用户</h3>
+        <p class="body-text">面向准备互联网研发岗笔试的计算机专业研究生。默认读者有编程基础，但对刷题体系还缺少整体地图，常见问题是题会看、手却起不来。</p>
+      </div>
+      <div class="card">
+        <div class="card-num">B</div>
+        <h3>使用方式</h3>
+        <p class="body-text">强调按顺序学习，而不是随机刷题。先用 3-5 个典型题形成套路感，再反复背模板代码，让常见题型从“认识”升级为“可快速输出”。</p>
+      </div>
+      <div class="card">
+        <div class="card-num">C</div>
+        <h3>核心原则</h3>
+        <p class="body-text">原文给出的主张非常明确：先掌握套路，再理解原理，最后追求优雅。也就是说，第一优先级是能在笔试场景里先写出来。</p>
+      </div>
+    </div>
+    <div class="anim quote-block">
+      <p>这不是一本追求“每题最优理论证明”的教材，而是一份把高频算法题工程化、模板化、可复盘化的通关脚本。</p>
+    </div>
+  </section>
+
+  <section class="slide">
+    <div class="big-num">02</div>
+    <div class="anim slide-label">Roadmap</div>
+    <div class="anim"><h2>整体路线图：从线性结构到状态设计</h2></div>
+    <div class="anim divider"></div>
+    <div class="anim stats-row">
+      <div class="stat-card">
+        <div class="stat-value">5</div>
+        <div class="stat-label">阶段</div>
+        <div class="stat-desc">从基础数据结构开始，层层递进到搜索策略与动态规划，学习顺序非常明确。</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value">18</div>
+        <div class="stat-label">模块</div>
+        <div class="stat-desc">涵盖哈希、链表、双指针、树、图、贪心、DP 等主流笔试高频内容。</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value">25-36</div>
+        <div class="stat-label">天数</div>
+        <div class="stat-desc">由各阶段建议时长累加得到，是完整首轮学习的可执行周期。</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value">1→5</div>
+        <div class="stat-label">难度升级</div>
+        <div class="stat-desc">从简单结构操作，到复杂搜索与状态转移，难度与抽象层级同步上升。</div>
+      </div>
+    </div>
+    <div class="anim steps">
+      <div class="step"><span class="step-num">Stage 1</span><h3>基础入门</h3><p class="small-text">哈希、位运算、链表基础，先建立 O(1) 查找与线性操作的直觉。</p></div>
+      <div class="step"><span class="step-num">Stage 2</span><h3>线性进阶</h3><p class="small-text">双指针、滑动窗口、栈，训练边界移动、窗口维护与延迟结算。</p></div>
+      <div class="step"><span class="step-num">Stage 3</span><h3>树与搜索</h3><p class="small-text">树、二分、堆、数组与矩阵，把结构感和搜索感系统补齐。</p></div>
+      <div class="step"><span class="step-num">Stage 4</span><h3>搜索策略</h3><p class="small-text">回溯、贪心、图论 / BFS / DFS，学会搜索整棵答案树或整张状态图。</p></div>
+      <div class="step"><span class="step-num">Stage 5</span><h3>状态设计</h3><p class="small-text">一维 DP 到多维 DP，再补高级链表与技巧题，完成最后冲刺。</p></div>
+    </div>
+  </section>
+
+  <section class="slide">
+    <div class="big-num">03</div>
+    <div class="anim slide-label">Stage 1</div>
+    <div class="anim"><h2>第一阶段：哈希、位运算、链表基础</h2></div>
+    <div class="anim divider"></div>
+    <div class="anim split">
+      <div>
+        <div class="card-grid cols-3" style="margin-top:0;">
+          <div class="card featured">
+            <div class="meta-line">3 个示例题</div>
+            <h3>哈希表</h3>
+            <p class="body-text">核心作用是把查找从 O(n) 压到 O(1)。代表题包括两数之和、字母异位词分组、最长连续序列，强调“空间换时间”的直觉。</p>
+          </div>
+          <div class="card">
+            <div class="meta-line">3 个示例题</div>
+            <h3>位运算技巧</h3>
+            <p class="body-text">异或消去、lowbit、右移等都是常见基础招式。重点不是炫技，而是识别哪些题适合用位运算做常数级简化。</p>
+          </div>
+          <div class="card">
+            <div class="meta-line">9 个示例题</div>
+            <h3>链表基础</h3>
+            <p class="body-text">反转链表、判环、合并、删除倒数节点、回文链表等题高度依赖哑节点、快慢指针和三指针翻转模板。</p>
+          </div>
+        </div>
+      </div>
+      <div>
+        <div class="highlight-bar"><p>这一阶段建议用时为 <span class="highlight">3-5 天</span>。真正要带走的不是题量，而是三个基础反射：查找先想哈希、链表先想 dummy、结构判断先想快慢指针。</p></div>
+        <ul class="bullet-list">
+          <li>代表简单题：<span class="em">#1 两数之和</span>、<span class="em">#136 只出现一次的数字</span>、<span class="em">#206 反转链表</span></li>
+          <li>代表中等题：<span class="em">#2 两数相加</span>、<span class="em">#142 环形链表 II</span>、<span class="em">#19 删除链表倒数第 N 个节点</span></li>
+          <li>阶段关键词：<span class="em">O(1) 查找、异或抵消、哑节点、快慢指针、三指针翻转</span></li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section class="slide">
+    <div class="big-num">04</div>
+    <div class="anim slide-label">Stage 2</div>
+    <div class="anim"><h2>第二阶段：双指针、滑动窗口、栈</h2></div>
+    <div class="anim divider"></div>
+    <div class="anim card-grid cols-3">
+      <div class="card featured">
+        <div class="meta-line">4 个示例题</div>
+        <h3>双指针</h3>
+        <p class="body-text">移动零、盛最多水的容器、三数之和、接雨水。难点在于决定谁移动，以及为什么移动不会错过更优解。</p>
+      </div>
+      <div class="card">
+        <div class="meta-line">5 个示例题</div>
+        <h3>滑动窗口</h3>
+        <p class="body-text">无重复字符最长子串、最小覆盖子串、滑动窗口最大值等题，核心是先定义窗口状态，再决定扩张与收缩条件。</p>
+      </div>
+      <div class="card">
+        <div class="meta-line">5 个示例题</div>
+        <h3>栈</h3>
+        <p class="body-text">有效括号、每日温度、柱状图最大矩形、字符串解码等题，统一视角是利用栈维护局部有序边界与待结算信息。</p>
+      </div>
+    </div>
+    <div class="anim vs-row">
+      <div class="vs-col ppt-col">
+        <span class="vs-tag">常见误区</span>
+        <h3>随机刷题时容易卡住</h3>
+        <ul>
+          <li>不知道 left 与 right 何时移动，边界逻辑频繁出错。</li>
+          <li>窗口里到底要记录频次、位置还是答案，思路不稳定。</li>
+          <li>单调栈只会背题名，不会抽象为“最近更大 / 更小”的通用模型。</li>
+        </ul>
+      </div>
+      <div class="vs-col html-col">
+        <span class="vs-tag">推荐方法</span>
+        <h3>按模板分组记忆</h3>
+        <ul>
+          <li>双指针先区分同向 / 相向，窗口先区分定长 / 不定长。</li>
+          <li>先写“窗口状态变量”，再写 while 条件和更新答案的位置。</li>
+          <li>把单调栈理解成一种延迟结算机制，而不是零散技巧合集。</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section class="slide">
+    <div class="big-num">05</div>
+    <div class="anim slide-label">Stage 3</div>
+    <div class="anim"><h2>第三阶段：树形结构、二分、堆与结构搜索</h2></div>
+    <div class="anim divider"></div>
+    <div class="anim card-grid cols-4">
+      <div class="card featured">
+        <div class="meta-line">13 个示例题</div>
+        <h3>二叉树</h3>
+        <p class="body-text">最大深度、层序遍历、BST 验证、最近公共祖先、最大路径和等，关键是把遍历顺序和返回值语义绑定起来。</p>
+      </div>
+      <div class="card">
+        <div class="meta-line">5 个示例题</div>
+        <h3>二分查找</h3>
+        <p class="body-text">从标准二分扩展到左右边界、旋转数组和二维矩阵，训练的是“在有序空间里折半定位”的稳定感。</p>
+      </div>
+      <div class="card">
+        <div class="meta-line">3 个示例题</div>
+        <h3>堆</h3>
+        <p class="body-text">第 K 大、前 K 高频、数据流中位数，背后其实都是 top-k 维护和双堆平衡问题。</p>
+      </div>
+      <div class="card">
+        <div class="meta-line">9 个示例题</div>
+        <h3>数组 / 矩阵</h3>
+        <p class="body-text">Kadane、合并区间、乘积数组、缺失正数、螺旋矩阵、旋转图像，考的是原地操作和结构映射。</p>
+      </div>
+    </div>
+    <div class="anim highlight-bar"><p>这一阶段信息量最大，也是最容易“看懂但写不稳”的阶段。建议按“遍历模板 → 返回值含义 → 代表难题”来拆解：例如树题里，前序更适合构造，中序更适合 BST，后序更适合汇总信息。</p></div>
+  </section>
+
+  <section class="slide">
+    <div class="big-num">06</div>
+    <div class="anim slide-label">Stage 4</div>
+    <div class="anim"><h2>第四阶段：回溯、贪心、图论 / BFS / DFS</h2></div>
+    <div class="anim divider"></div>
+    <div class="anim card-grid cols-3">
+      <div class="card featured">
+        <div class="meta-line">8 个示例题</div>
+        <h3>回溯</h3>
+        <p class="body-text">全排列、子集、组合总和、括号生成、单词搜索、N 皇后等题都可归入“答案树搜索”，核心公式是做选择、递归、撤销选择。</p>
+      </div>
+      <div class="card">
+        <div class="meta-line">4 个示例题</div>
+        <h3>贪心</h3>
+        <p class="body-text">股票、跳跃游戏、划分字母区间。看似简单，真正难点在于证明当前局部最优不会伤害未来全局最优。</p>
+      </div>
+      <div class="card">
+        <div class="meta-line">4 个示例题</div>
+        <h3>图论 / BFS / DFS</h3>
+        <p class="body-text">岛屿数量、腐烂的橘子、课程表、Trie 等题，训练的是如何把问题重新抽象成节点与关系，再决定遍历方式。</p>
+      </div>
+    </div>
+    <div class="anim quote-block">
+      <p>前几阶段更多是在练“怎么操作结构”，这一阶段开始练“怎么搜索空间”。一旦会把问题画成树、图或状态图，很多看似不同的题会自然归类到同一种方法。</p>
+    </div>
+  </section>
+
+  <section class="slide">
+    <div class="big-num">07</div>
+    <div class="anim slide-label">Stage 5</div>
+    <div class="anim"><h2>第五阶段：动态规划本质是状态设计能力</h2></div>
+    <div class="anim divider"></div>
+    <div class="anim split">
+      <div>
+        <div class="card-grid cols-2" style="margin-top:0;">
+          <div class="card featured">
+            <div class="meta-line">10 个示例题</div>
+            <h3>一维 DP</h3>
+            <p class="body-text">爬楼梯、打家劫舍、零钱兑换、单词拆分、LIS、最长有效括号等，核心是先把一条线上的状态转移推熟。</p>
+          </div>
+          <div class="card">
+            <div class="meta-line">5 个示例题</div>
+            <h3>多维 DP</h3>
+            <p class="body-text">不同路径、最小路径和、最长回文子串、最长公共子序列、编辑距离，把二维表格当作状态空间看待。</p>
+          </div>
+          <div class="card">
+            <div class="meta-line">5 个示例题</div>
+            <h3>高级链表</h3>
+            <p class="body-text">K 个一组翻转、随机链表复制、排序链表、合并 K 链表、LRU 缓存，属于综合结构题与设计题。</p>
+          </div>
+          <div class="card">
+            <div class="meta-line">2 个补充技巧</div>
+            <h3>其他高频技巧</h3>
+            <p class="body-text">如下一个排列、寻找重复数，虽然数量少，但常在笔试中承担“区分熟练度”的作用。</p>
+          </div>
+        </div>
+      </div>
+      <div>
+        <div class="highlight-bar"><p>原文把 DP 心法总结为四步：<span class="highlight">定义状态 → 推导转移 → 确定初始值 → 确定遍历顺序</span>。很多题不是不会写，而是第一步状态定义就偏了。</p></div>
+        <ul class="bullet-list">
+          <li>建议先吃透 <span class="em">#198 打家劫舍</span>、<span class="em">#322 零钱兑换</span>、<span class="em">#300 最长递增子序列</span></li>
+          <li>二维 DP 必须先说清每个格子代表什么，再谈如何从左上、上方或左方转移过来。</li>
+          <li>这一阶段建议用时 <span class="em">7-10 天</span>，是整个学习流程里最考验耐心的一段。</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section class="slide">
+    <div class="big-num">08</div>
+    <div class="anim slide-label">Pattern Matrix</div>
+    <div class="anim"><h2>附录真正沉淀下来的，是十类高频解题套路</h2></div>
+    <div class="anim divider"></div>
+    <div class="anim matrix-grid">
+      <div class="matrix-card"><div class="matrix-head"><h3>哈希表</h3><span class="matrix-chip">O(1) 查找</span></div><p class="small-text">适合找另一半、判重、频率统计与分组归类，典型题是两数之和、字母异位词、最长连续序列。</p></div>
+      <div class="matrix-card"><div class="matrix-head"><h3>双指针</h3><span class="matrix-chip">线性逼近</span></div><p class="small-text">适合有序数组、容器面积、区间碰撞、链表中点等问题，关键是判断谁动、为何动。</p></div>
+      <div class="matrix-card"><div class="matrix-head"><h3>滑动窗口</h3><span class="matrix-chip">维护区间</span></div><p class="small-text">本质是连续区间维护，所有窗口题都绕不开“扩右、缩左、更新状态”三步。</p></div>
+      <div class="matrix-card"><div class="matrix-head"><h3>单调栈</h3><span class="matrix-chip">边界结算</span></div><p class="small-text">每日温度、柱状图最大矩形、窗口最大值，都可以理解为寻找最近更大或更小元素。</p></div>
+      <div class="matrix-card"><div class="matrix-head"><h3>二分查找</h3><span class="matrix-chip">有序空间</span></div><p class="small-text">除了找值，还要会找边界、插入位置，以及满足条件的最小或最大位置。</p></div>
+      <div class="matrix-card"><div class="matrix-head"><h3>BFS / DFS</h3><span class="matrix-chip">遍历搜索</span></div><p class="small-text">BFS 擅长最短步数与层序扩散，DFS 擅长递归遍历、连通块统计与答案树搜索。</p></div>
+      <div class="matrix-card"><div class="matrix-head"><h3>回溯</h3><span class="matrix-chip">搜索答案树</span></div><p class="small-text">排列、组合、子集、棋盘问题都适合用路径、选择列表、结束条件、撤销选择来统一理解。</p></div>
+      <div class="matrix-card"><div class="matrix-head"><h3>贪心</h3><span class="matrix-chip">局部最优</span></div><p class="small-text">并非所有题都能贪心，关键是能否证明当前最优选择对后续仍然安全。</p></div>
+      <div class="matrix-card"><div class="matrix-head"><h3>动态规划</h3><span class="matrix-chip">状态转移</span></div><p class="small-text">是否存在重叠子问题、可定义有限状态、可写出递推关系，是判断 DP 的核心问题。</p></div>
+      <div class="matrix-card"><div class="matrix-head"><h3>并查集 / 结构重构</h3><span class="matrix-chip">少量变体</span></div><p class="small-text">附录中也提醒了并查集与结构重解释类题的价值，如 Floyd 判圈、原地置换等思路。</p></div>
+    </div>
+  </section>
+
+  <section class="slide">
+    <div class="big-num">09</div>
+    <div class="anim slide-label">Templates</div>
+    <div class="anim"><h2>模板代码的作用，是降低思维开销与起手难度</h2></div>
+    <div class="anim divider"></div>
+    <div class="anim code-grid">
+      <div class="code-card">
+        <div class="code-title">Hash Table</div>
+        <pre>seen = {}
+for i, num in enumerate(nums):
+    if target - num in seen:
+        return [seen[target - num], i]
+    seen[num] = i</pre>
+        <div class="code-note">适用于“两数之和”类题目。关键不是代码本身，而是看到“找另一半”时能瞬间想到用哈希把查找降到 O(1)。</div>
+      </div>
+      <div class="code-card">
+        <div class="code-title">Sliding Window</div>
+        <pre>left = 0
+for right, ch in enumerate(s):
+    update_in(ch)
+    while not valid():
+        update_out(s[left])
+        left += 1
+    refresh_answer()</pre>
+        <div class="code-note">窗口题最容易乱的不是写法，而是 valid() 的定义。只要状态定义对，模板本身非常稳定。</div>
+      </div>
+      <div class="code-card">
+        <div class="code-title">Backtracking</div>
+        <pre>def dfs(path, choices):
+    if finish(path):
+        ans.append(path[:])
+        return
+    for c in choices:
+        choose(c)
+        dfs(path, choices)
+        undo(c)</pre>
+        <div class="code-note">排列、组合、子集、括号生成、本质上都在同一棵答案树里走，只是剪枝条件和去重方式不同。</div>
+      </div>
+      <div class="code-card">
+        <div class="code-title">Dynamic Programming</div>
+        <pre>dp[0] = base
+for i in range(1, n + 1):
+    dp[i] = best(
+        transition_1,
+        transition_2,
+        ...
+    )</pre>
+        <div class="code-note">DP 模板真正要背的是思考顺序：先定义 dp[i] 的语义，再写转移，而不是看完代码后倒推状态。</div>
+      </div>
+    </div>
+  </section>
+
+  <section class="slide">
+    <div class="big-num">10</div>
+    <div class="anim slide-label">Sprint Strategy</div>
+    <div class="anim"><h2>如何把这本手册真正转化为笔试得分</h2></div>
+    <div class="anim divider"></div>
+    <div class="anim vs-row">
+      <div class="vs-col ppt-col">
+        <span class="vs-tag">低效节奏</span>
+        <h3>看似努力，实际分散</h3>
+        <ul>
+          <li>今天刷树，明天刷 DP，后天又随机开一题，知识点无法沉淀成系统。</li>
+          <li>只看题解不手写模板，遇到相似题时还是没有稳定的起手动作。</li>
+          <li>花太多时间啃少数困难题，却忽略了中频套路的覆盖率与熟练度。</li>
+        </ul>
+      </div>
+      <div class="vs-col html-col">
+        <span class="vs-tag">推荐节奏</span>
+        <h3>首轮顺刷 + 高频复盘</h3>
+        <ul>
+          <li>第一轮严格按 5 个阶段顺序推进，先建立完整题型地图。</li>
+          <li>每天背 2-3 个模板，再做对应代表题，把输入与输出绑在一起。</li>
+          <li>考前只复盘高频模板、边界细节与困难题心法，不再大面积随机开荒。</li>
+        </ul>
+      </div>
+    </div>
+    <div class="anim highlight-bar"><p>若完全按原文建议推进，首轮学习约需 <span class="highlight">25-36 天</span>。若时间压缩，则优先保证阶段 1 到阶段 3 的熟练度，因为这部分覆盖了最多、最稳定的笔试得分点。</p></div>
+  </section>
+
+  <section class="slide">
+    <div class="big-num">11</div>
+    <div class="anim slide-label">Checklist</div>
+    <div class="anim"><h2>考前复盘，只检查这四件事</h2></div>
+    <div class="anim divider"></div>
+    <div class="anim card-grid cols-2">
+      <div class="card featured">
+        <div class="card-num">01</div>
+        <h3>能否快速判题型</h3>
+        <p class="body-text">看到题目后，能否在 20 秒内判断它更像哈希、双指针、窗口、栈、树搜索还是 DP，这决定了起手速度。</p>
+      </div>
+      <div class="card">
+        <div class="card-num">02</div>
+        <h3>是否有起手模板</h3>
+        <p class="body-text">哈希、窗口、DFS / 回溯、二分、堆、DP 这些骨架是否能脱稿写出，是判断复习质量最直观的标准。</p>
+      </div>
+      <div class="card">
+        <div class="card-num">03</div>
+        <h3>边界是否敏感</h3>
+        <p class="body-text">空数组、单节点、重复元素、初始值、越界、更新顺序，这些细节往往比算法本身更容易导致丢分。</p>
+      </div>
+      <div class="card">
+        <div class="card-num">04</div>
+        <h3>能否一句话讲清思路</h3>
+        <p class="body-text">如果每题都能用一句话解释“为什么这么做”，说明你已经从背答案升级为掌握方法。</p>
+      </div>
+    </div>
+    <div class="anim quote-block"><p>真正的目标，不是把 Hot 100 记成 100 个孤立题，而是把它们压缩成一套可以迁移、可以组合、可以复用的算法语言。</p></div>
+  </section>
+
+  <section class="slide">
+    <div class="glow glow-purple" style="width:360px;height:360px;top:50%;left:50%;transform:translate(-50%,-50%);"></div>
+    <div class="end-card">
+      <div class="anim"><h2>先掌握套路，再理解原理，最后追求优雅</h2></div>
+      <div class="anim divider" style="margin:18px auto 14px;"></div>
+      <p class="anim subtitle" style="max-width:760px;text-align:center;">这份 HTML 汇报稿已经把原始长文压缩为 12 页可翻页展示。它适合用于个人复盘、组内分享或算法学习路线说明：前半段讲路径，后半段讲套路，最后收束到考前执行清单。</p>
+      <div class="anim cover-meta" style="justify-content:center;">
+        <span class="cover-tag">顺序学习</span>
+        <span class="cover-tag">反复背模板</span>
+        <span class="cover-tag">优先稳定得分</span>
+      </div>
+    </div>
+  </section>
+</div>
+
+<div class="controls">
+  <button id="prevBtn" title="上一页">‹</button>
+  <span class="counter" id="counter">01 / 12</span>
+  <button id="nextBtn" title="下一页">›</button>
+</div>
+
+<script>
+(function () {
+  const slides = document.querySelectorAll('.slide');
+  const total = slides.length;
+  let current = 0;
+
+  const counter = document.getElementById('counter');
+  const prevBtn = document.getElementById('prevBtn');
+  const nextBtn = document.getElementById('nextBtn');
+  const progress = document.getElementById('progress');
+  const dotsWrap = document.getElementById('dots');
+  const hint = document.getElementById('hint');
+
+  function pad(n) {
+    return String(n).padStart(2, '0');
+  }
+
+  for (let i = 0; i < total; i += 1) {
+    const dot = document.createElement('div');
+    dot.className = i === 0 ? 'dot active' : 'dot';
+    dot.addEventListener('click', function () {
+      goTo(i);
+    });
+    dotsWrap.appendChild(dot);
+  }
+
+  const dots = dotsWrap.querySelectorAll('.dot');
+
+  function syncUI() {
+    counter.textContent = pad(current + 1) + ' / ' + pad(total);
+    progress.style.width = ((current + 1) / total * 100) + '%';
+    prevBtn.disabled = current === 0;
+    nextBtn.disabled = current === total - 1;
+    dots.forEach(function (dot, index) {
+      dot.classList.toggle('active', index === current);
+    });
+  }
+
+  function goTo(index) {
+    if (index < 0 || index >= total || index === current) {
+      return;
+    }
+
+    const previous = slides[current];
+    const next = slides[index];
+
+    previous.classList.remove('active');
+    previous.classList.add('exit-up');
+
+    requestAnimationFrame(function () {
+      next.classList.remove('exit-up');
+      next.classList.add('active');
+    });
+
+    setTimeout(function () {
+      previous.classList.remove('exit-up');
+    }, 650);
+
+    current = index;
+    syncUI();
+  }
+
+  function next() {
+    goTo(current + 1);
+  }
+
+  function prev() {
+    goTo(current - 1);
+  }
+
+  slides[0].classList.add('active');
+  syncUI();
+
+  prevBtn.addEventListener('click', prev);
+  nextBtn.addEventListener('click', next);
+
+  document.addEventListener('keydown', function (event) {
+    if (event.key === 'ArrowRight' || event.key === 'ArrowDown' || event.key === ' ') {
+      event.preventDefault();
+      next();
+    }
+
+    if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') {
+      event.preventDefault();
+      prev();
+    }
+
+    if (event.key === 'Home') {
+      event.preventDefault();
+      goTo(0);
+    }
+
+    if (event.key === 'End') {
+      event.preventDefault();
+      goTo(total - 1);
+    }
+  });
+
+  let touchX = 0;
+  let touchY = 0;
+
+  document.addEventListener('touchstart', function (event) {
+    touchX = event.changedTouches[0].screenX;
+    touchY = event.changedTouches[0].screenY;
+  }, { passive: true });
+
+  document.addEventListener('touchend', function (event) {
+    const dx = event.changedTouches[0].screenX - touchX;
+    const dy = event.changedTouches[0].screenY - touchY;
+
+    if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 50) {
+      if (dx < 0) {
+        next();
+      } else {
+        prev();
+      }
+    }
+  }, { passive: true });
+
+  function hideHint() {
+    hint.classList.add('hidden');
+  }
+
+  document.addEventListener('keydown', hideHint, { once: true });
+  document.addEventListener('click', hideHint, { once: true });
+  setTimeout(hideHint, 5000);
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,63 @@
+{
+  "pdf_path": "D:\\Data\\New_Codes\\SKILLS\\Accumulate-PPTs\\raw\\Dialogue Director Bridging the Gap in Dialogue Visualization for Multimodal Storytelling.pdf",
+  "output_dir": "D:\\Data\\New_Codes\\SKILLS\\Accumulate-PPTs\\ingest\\Dialogue_Director",
+  "total_pages": 6,
+  "embedded_images_scanned": 15,
+  "cropped_regions": 4,
+  "unique_crop_images": 4,
+  "rendered_pages": 0,
+  "images": [
+    {
+      "path": "D:\\Data\\New_Codes\\SKILLS\\Accumulate-PPTs\\ingest\\Dialogue_Director\\crop_001_page001_reg1.png",
+      "page": 1,
+      "width": 715,
+      "height": 670,
+      "source": "region_crop",
+      "bbox": [
+        308.9779968261719,
+        214.90975952148438,
+        566.0235595703125,
+        455.584716796875
+      ]
+    },
+    {
+      "path": "D:\\Data\\New_Codes\\SKILLS\\Accumulate-PPTs\\ingest\\Dialogue_Director\\crop_002_page003_reg1.png",
+      "page": 3,
+      "width": 1303,
+      "height": 714,
+      "source": "region_crop",
+      "bbox": [
+        69.9260025024414,
+        47.53971862792969,
+        538.5729370117188,
+        304.43408203125
+      ]
+    },
+    {
+      "path": "D:\\Data\\New_Codes\\SKILLS\\Accumulate-PPTs\\ingest\\Dialogue_Director\\crop_003_page005_reg1.png",
+      "page": 5,
+      "width": 715,
+      "height": 738,
+      "source": "region_crop",
+      "bbox": [
+        308.9779968261719,
+        162.54165649414062,
+        566.0372314453125,
+        428.0008544921875
+      ]
+    },
+    {
+      "path": "D:\\Data\\New_Codes\\SKILLS\\Accumulate-PPTs\\ingest\\Dialogue_Director\\crop_004_page005_reg2.png",
+      "page": 5,
+      "width": 715,
+      "height": 366,
+      "source": "region_crop",
+      "bbox": [
+        45.9640007019043,
+        47.53783416748047,
+        303.01629638671875,
+        179.07545471191406
+      ]
+    }
+  ]
+}

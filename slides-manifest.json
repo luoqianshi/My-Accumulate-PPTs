@@ -1,0 +1,82 @@
+{
+  "generatedAt": "2026-05-14T17:00:00+08:00",
+  "slides": [
+    {
+      "title": "Maize Tassels Detection: A Benchmark of the State of the Art",
+      "file": "paper-slides/maize_tassels_presentation.html",
+      "description": "玉米雄穗检测研究演示，聚焦目标检测、密度回归与植物表型分析基准。",
+      "kind": "期刊/会议",
+      "accent": "rgba(93,112,82,.2)"
+    },
+    {
+      "title": "SAHI - 切片辅助超推理与微调小目标检测",
+      "file": "paper-slides/SAHI.html",
+      "description": "IEEE ICIP 2022 SAHI 论文演示，聚焦切片推理、小目标检测与微调流程。",
+      "kind": "期刊/会议",
+      "accent": "rgba(193,140,93,.22)"
+    },
+    {
+      "title": "低空航拍可见光图像快速检测甘蔗幼苗群体数量",
+      "file": "paper-slides/sugarcane_thesis_presentation.html",
+      "description": "面向低空航拍 RGB 图像的甘蔗幼苗群体数量检测学位论文答辩。",
+      "kind": "学位论文",
+      "accent": "rgba(93,112,82,.2)"
+    },
+    {
+      "title": "YOLO-Master Presentation",
+      "file": "paper-slides/YOLO-Master_Presentation.html",
+      "description": "YOLO-Master 论文演示，聚焦基于 MoE 加速的专业化 Transformer 实时目标检测方法。",
+      "kind": "期刊/会议",
+      "accent": "rgba(97,145,211,.18)"
+    },
+    {
+      "title": "YOLOv12 论文精读",
+      "file": "paper-slides/YOLOv12.html",
+      "description": "YOLOv12 论文精读演示，聚焦以注意力为中心的实时目标检测器、Area Attention 与 R-ELAN 等核心设计。",
+      "kind": "期刊/会议",
+      "accent": "rgba(57,102,162,.18)"
+    },
+    {
+      "title": "RT-DETR: DETRs Beat YOLOs on Real-time Object Detection",
+      "file": "paper-slides/RT-DETR.html",
+      "description": "RT-DETR 论文演示，聚焦 DETR 类实时目标检测器、高效混合编码器与不确定性感知选择。",
+      "kind": "期刊/会议",
+      "accent": "rgba(57,102,162,.18)"
+    },
+    {
+      "title": "YOLOv13 论文精读",
+      "file": "paper-slides/YOLOv13.html",
+      "description": "YOLOv13论文精读演示，聚焦超图自适应关联增强（HyperACE）、全管线聚合-分发范式（FullPAD）与DS轻量化模块。",
+      "kind": "期刊/会议",
+      "accent": "rgba(57,102,162,.18)"
+    },
+    {
+      "title": "YOLO26 论文解读",
+      "file": "paper-slides/YOLO26.html",
+      "description": "YOLO26论文精读演示，聚焦移除DFL、NMS-free端到端推理、ProgLoss+STAL训练优化与MuSGD优化器。",
+      "kind": "期刊/会议",
+      "accent": "rgba(57,102,162,.18)"
+    },
+    {
+      "title": "Boosting Long-tailed Object Detection via Step-wise Learning",
+      "file": "paper-slides/smooth-tail_learning.html",
+      "description": "ICCV 2023 长尾目标检测论文演示，聚焦平滑尾部数据构建、逐步学习框架与知识迁移策略。",
+      "kind": "期刊/会议",
+      "accent": "rgba(57,102,162,.18)"
+    },
+    {
+      "title": "甘蔗幼苗识别与计数 - Improved Faster R-CNN",
+      "file": "paper-slides/sugarcane-seedlings-detection.html",
+      "description": "基于改进 Faster R-CNN 的甘蔗幼苗自动检测与计数方法（SGN-D），聚焦田间无人机航拍图像中的小目标检测与计数。",
+      "kind": "期刊/会议",
+      "accent": "rgba(93,112,82,.2)"
+    },
+    {
+      "title": "Dialogue Director 论文精读",
+      "file": "paper-slides/Dialogue_Director.html",
+      "description": "Dialogue Director 论文精读演示，聚焦对话可视化新任务、免训练三智能体框架（Script Director + Cinematographer + Storyboard Maker）与电影知识整合。",
+      "kind": "期刊/会议",
+      "accent": "rgba(57,102,162,.18)"
+    }
+  ]
+}

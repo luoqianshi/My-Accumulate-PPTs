@@ -1,0 +1,1167 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="icon" href="../assets/favicon.png" type="image/png" />
+<title>YOLO26 论文解读</title>
+<style>
+/* ========== Reset & Base ========== */
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+:root {
+  --bg: #ffffff;
+  --fg: #000000;
+  --title: #3966A2;
+  --accent: #132843;
+  --secondary: #6191D3;
+  --card-bg: #f5f7fa;
+  --card-border: #e2e8f0;
+  --glow-purple: rgba(97, 145, 211, 0.12);
+  --glow-yellow: rgba(57, 102, 162, 0.08);
+  --radius: 16px;
+  --radius-sm: 10px;
+  --shadow: 0 2px 12px rgba(0,0,0,0.06);
+  --shadow-lg: 0 8px 32px rgba(0,0,0,0.08);
+  --transition: 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+html, body {
+  width: 100%; height: 100%;
+  overflow: hidden;
+  font-family: 'Inter', 'Noto Sans SC', -apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  background: var(--bg);
+  color: var(--fg);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ========== Presentation Container ========== */
+.presentation {
+  position: relative;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* ========== Progress Bar ========== */
+.progress-bar {
+  position: fixed;
+  top: 0; left: 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--title), var(--secondary));
+  transition: width 0.5s ease;
+  z-index: 100;
+  border-radius: 0 2px 2px 0;
+}
+
+/* ========== Slides ========== */
+.slide {
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 5vh 7vw;
+  opacity: 0 !important;
+  visibility: hidden !important;
+  transform: translateY(20px) !important;
+  transition: opacity 0.5s ease, transform 0.5s ease, visibility 0.5s ease;
+  will-change: opacity, transform, visibility;
+}
+
+.slide.active {
+  opacity: 1 !important;
+  visibility: visible !important;
+  transform: translateY(0) !important;
+}
+
+.slide.exit-up {
+  opacity: 0 !important;
+  visibility: hidden !important;
+  transform: translateY(-30px) !important;
+}
+
+/* ========== Typography ========== */
+.slide h1 {
+  font-size: clamp(2rem, 4vw, 3.2rem);
+  font-weight: 700;
+  color: var(--title);
+  line-height: 1.25;
+  margin-bottom: 0.4em;
+  letter-spacing: -0.02em;
+}
+
+.slide h2 {
+  font-size: clamp(1.5rem, 3vw, 2.4rem);
+  font-weight: 700;
+  color: var(--title);
+  line-height: 1.3;
+  margin-bottom: 0.5em;
+  letter-spacing: -0.015em;
+}
+
+.slide h3 {
+  font-size: clamp(1.1rem, 2vw, 1.5rem);
+  font-weight: 600;
+  color: var(--accent);
+  line-height: 1.4;
+  margin-bottom: 0.4em;
+}
+
+.slide p, .slide li {
+  font-size: clamp(0.85rem, 1.4vw, 1.05rem);
+  color: var(--fg);
+  line-height: 1.75;
+  opacity: 0.85;
+}
+
+.slide .subtitle {
+  font-size: clamp(1rem, 1.8vw, 1.3rem);
+  color: var(--secondary);
+  font-weight: 500;
+  margin-bottom: 1.5em;
+}
+
+.slide .section-label {
+  font-size: clamp(0.7rem, 1vw, 0.8rem);
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: var(--secondary);
+  font-weight: 600;
+  margin-bottom: 0.6em;
+}
+
+/* ========== Cover Page ========== */
+.cover-content {
+  text-align: center;
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.cover-content h1 {
+  font-size: clamp(2.2rem, 4.5vw, 3.6rem);
+  margin-bottom: 0.3em;
+}
+
+.cover-tags {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 2em;
+}
+
+.cover-tag {
+  display: inline-block;
+  padding: 6px 16px;
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 100px;
+  font-size: clamp(0.7rem, 1vw, 0.82rem);
+  color: var(--title);
+  font-weight: 500;
+  letter-spacing: 0.02em;
+}
+
+.cover-meta {
+  font-size: clamp(0.8rem, 1.2vw, 0.95rem);
+  color: var(--fg);
+  opacity: 0.5;
+  margin-top: 2em;
+}
+
+/* ========== Badge ========== */
+.badge {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 6px;
+  font-size: clamp(0.65rem, 0.9vw, 0.75rem);
+  font-weight: 600;
+  letter-spacing: 0.03em;
+}
+
+.badge-blue { background: rgba(57,102,162,0.1); color: var(--title); }
+.badge-dark { background: rgba(19,40,67,0.08); color: var(--accent); }
+.badge-light { background: rgba(97,145,211,0.1); color: var(--secondary); }
+
+/* ========== Card & Card Grid ========== */
+.card-grid {
+  display: grid;
+  gap: 16px;
+  margin-top: 1em;
+}
+
+.card-grid.cols-2 { grid-template-columns: repeat(2, 1fr); }
+.card-grid.cols-3 { grid-template-columns: repeat(3, 1fr); }
+.card-grid.cols-4 { grid-template-columns: repeat(4, 1fr); }
+
+.card {
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius);
+  padding: clamp(16px, 2vw, 24px);
+  transition: box-shadow var(--transition);
+}
+
+.card:hover {
+  box-shadow: var(--shadow-lg);
+}
+
+.card h3 {
+  margin-bottom: 0.5em;
+  font-size: clamp(0.95rem, 1.5vw, 1.15rem);
+}
+
+.card p, .card li {
+  font-size: clamp(0.78rem, 1.2vw, 0.92rem);
+}
+
+/* ========== Highlight Bar ========== */
+.highlight-bar {
+  position: relative;
+  padding: clamp(14px, 2vw, 20px) clamp(18px, 2.5vw, 28px);
+  background: linear-gradient(135deg, rgba(57,102,162,0.06), rgba(97,145,211,0.04));
+  border-left: 4px solid var(--title);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  margin: 1em 0;
+}
+
+.highlight-bar p {
+  font-size: clamp(0.85rem, 1.3vw, 1rem);
+  font-weight: 500;
+  opacity: 1;
+}
+
+/* ========== Bullet List ========== */
+.bullet-list {
+  list-style: none;
+  padding: 0;
+}
+
+.bullet-list li {
+  position: relative;
+  padding-left: 1.4em;
+  margin-bottom: 0.6em;
+}
+
+.bullet-list li::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0.55em;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--title);
+  opacity: 0.7;
+}
+
+/* ========== Steps ========== */
+.steps {
+  display: flex;
+  gap: 0;
+  margin-top: 1em;
+  position: relative;
+}
+
+.steps::before {
+  content: '';
+  position: absolute;
+  top: 22px;
+  left: 22px;
+  right: 22px;
+  height: 2px;
+  background: var(--card-border);
+  z-index: 0;
+}
+
+.step {
+  flex: 1;
+  text-align: center;
+  position: relative;
+  z-index: 1;
+  padding: 0 8px;
+}
+
+.step-num {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: var(--title);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: clamp(0.85rem, 1.2vw, 1rem);
+  margin: 0 auto 10px;
+}
+
+.step h4 {
+  font-size: clamp(0.8rem, 1.2vw, 0.95rem);
+  font-weight: 600;
+  color: var(--accent);
+  margin-bottom: 4px;
+}
+
+.step p {
+  font-size: clamp(0.7rem, 1vw, 0.8rem);
+  opacity: 0.7;
+}
+
+/* ========== Glow Decorations ========== */
+.glow {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(80px);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.glow-purple {
+  width: clamp(200px, 30vw, 400px);
+  height: clamp(200px, 30vw, 400px);
+  background: var(--glow-purple);
+}
+
+.glow-yellow {
+  width: clamp(150px, 25vw, 350px);
+  height: clamp(150px, 25vw, 350px);
+  background: var(--glow-yellow);
+}
+
+/* ========== Two Column Layout ========== */
+.two-col {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: clamp(24px, 4vw, 48px);
+  align-items: start;
+}
+
+.two-col-wide {
+  display: grid;
+  grid-template-columns: 1.2fr 0.8fr;
+  gap: clamp(24px, 4vw, 48px);
+  align-items: start;
+}
+
+/* ========== Table ========== */
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: clamp(0.75rem, 1.1vw, 0.9rem);
+  margin-top: 1em;
+}
+
+.data-table thead th {
+  text-align: left;
+  padding: 10px 14px;
+  background: var(--card-bg);
+  color: var(--accent);
+  font-weight: 600;
+  border-bottom: 2px solid var(--card-border);
+  font-size: clamp(0.72rem, 1vw, 0.82rem);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.data-table tbody td {
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--card-border);
+  color: var(--fg);
+  opacity: 0.85;
+}
+
+.data-table tbody tr:hover {
+  background: rgba(57,102,162,0.03);
+}
+
+.data-table .best {
+  font-weight: 700;
+  color: var(--title);
+}
+
+/* ========== Controls ========== */
+.controls {
+  position: fixed;
+  bottom: 0;
+  left: 0; right: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 7vw;
+  z-index: 90;
+  background: linear-gradient(to top, rgba(255,255,255,0.95), rgba(255,255,255,0));
+  pointer-events: none;
+}
+
+.controls > * { pointer-events: auto; }
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 22px;
+  border: 1px solid var(--card-border);
+  border-radius: 100px;
+  background: var(--bg);
+  color: var(--fg);
+  font-size: clamp(0.78rem, 1vw, 0.88rem);
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.25s ease;
+  font-family: inherit;
+  user-select: none;
+}
+
+.btn:hover {
+  background: var(--card-bg);
+  border-color: var(--secondary);
+  color: var(--title);
+}
+
+.btn:active {
+  transform: scale(0.97);
+}
+
+.btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.btn:disabled:hover {
+  background: var(--bg);
+  border-color: var(--card-border);
+  color: var(--fg);
+}
+
+.page-counter {
+  font-size: clamp(0.75rem, 1vw, 0.85rem);
+  color: var(--fg);
+  opacity: 0.4;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ========== Dots Navigation ========== */
+.dots {
+  position: fixed;
+  right: clamp(12px, 2vw, 28px);
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  z-index: 90;
+}
+
+.dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--card-border);
+  cursor: pointer;
+  transition: all 0.3s ease;
+  border: none;
+  padding: 0;
+}
+
+.dot.active {
+  background: var(--title);
+  transform: scale(1.4);
+  box-shadow: 0 0 0 3px rgba(57,102,162,0.2);
+}
+
+.dot:hover:not(.active) {
+  background: var(--secondary);
+  transform: scale(1.2);
+}
+
+/* ========== Animations ========== */
+.anim {
+  opacity: 0;
+  transform: translateY(16px);
+  transition: opacity 0.5s ease, transform 0.5s ease;
+}
+
+.slide.active .anim {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.slide.active .anim:nth-child(1) { transition-delay: 0.08s; }
+.slide.active .anim:nth-child(2) { transition-delay: 0.16s; }
+.slide.active .anim:nth-child(3) { transition-delay: 0.24s; }
+.slide.active .anim:nth-child(4) { transition-delay: 0.32s; }
+.slide.active .anim:nth-child(5) { transition-delay: 0.40s; }
+.slide.active .anim:nth-child(6) { transition-delay: 0.48s; }
+.slide.active .anim:nth-child(7) { transition-delay: 0.56s; }
+.slide.active .anim:nth-child(8) { transition-delay: 0.64s; }
+
+/* ========== Utility ========== */
+.mt-1 { margin-top: 0.5em; }
+.mt-2 { margin-top: 1em; }
+.mt-3 { margin-top: 1.5em; }
+.mb-1 { margin-bottom: 0.5em; }
+.mb-2 { margin-bottom: 1em; }
+.text-center { text-align: center; }
+.text-secondary { color: var(--secondary); }
+.text-accent { color: var(--accent); }
+.font-bold { font-weight: 700; }
+.relative { position: relative; z-index: 1; }
+
+/* ========== Responsive ========== */
+@media (max-width: 900px) {
+  .two-col, .two-col-wide { grid-template-columns: 1fr; gap: 20px; }
+  .card-grid.cols-3, .card-grid.cols-4 { grid-template-columns: repeat(2, 1fr); }
+  .steps { flex-direction: column; gap: 16px; }
+  .steps::before { display: none; }
+  .step { text-align: left; display: flex; align-items: center; gap: 14px; }
+  .step-num { margin: 0; flex-shrink: 0; }
+  .dots { display: none; }
+}
+
+@media (max-width: 600px) {
+  .card-grid.cols-2, .card-grid.cols-3, .card-grid.cols-4 { grid-template-columns: 1fr; }
+  .slide { padding: 4vh 5vw; }
+  .controls { padding: 12px 5vw; }
+}
+</style>
+</head>
+<body>
+
+<div class="presentation">
+  <!-- Progress Bar -->
+  <div class="progress-bar" id="progressBar"></div>
+
+  <!-- ==================== Slide 1: Cover ==================== -->
+  <div class="slide active" data-slide="0">
+    <div class="glow glow-purple" style="top: -10%; left: -5%;"></div>
+    <div class="glow glow-yellow" style="bottom: -10%; right: -5%;"></div>
+    <div class="cover-content relative">
+      <div class="anim cover-tags">
+        <span class="cover-tag">目标检测</span>
+        <span class="cover-tag">边缘AI</span>
+        <span class="cover-tag">YOLO系列</span>
+        <span class="cover-tag">2025</span>
+      </div>
+      <h1 class="anim">YOLO26：实时目标检测的<br>关键架构增强与性能基准测试</h1>
+      <p class="anim subtitle">论文精读与核心要点解读</p>
+      <div class="anim">
+        <div class="highlight-bar">
+          <p>Key Architectural Enhancements and Performance Benchmarking<br>for Real-Time Object Detection</p>
+        </div>
+      </div>
+      <p class="anim cover-meta">Ranjan Sapkota (Cornell University) &bull; Rahul Harsha Cheppally &bull; Ajay Sharda &bull; Manoj Karkee (Kansas State University)</p>
+      <p class="anim cover-meta">2025年9月 &middot; YOLO Vision 2025, London</p>
+    </div>
+  </div>
+
+  <!-- ==================== Slide 2: Background ==================== -->
+  <div class="slide" data-slide="1">
+    <div class="glow glow-purple" style="top: -15%; right: -10%;"></div>
+    <div class="relative">
+      <p class="anim section-label">Research Background</p>
+      <h2 class="anim">研究背景：YOLO的发展与挑战</h2>
+
+      <div class="anim two-col mt-2">
+        <div>
+          <h3 class="mb-1">YOLO发展历程</h3>
+          <div class="highlight-bar">
+            <p>YOLOv1 (2016) &rarr; v2 &rarr; v3 &rarr; v4 &rarr; v5 &rarr; v6/v7 &rarr; v8 &rarr; v9 &rarr; v10 &rarr; v11 &rarr; v12 &rarr; v13 &rarr; <strong>YOLO26 (2025)</strong></p>
+          </div>
+          <p class="mt-2">自2016年首次提出以来，YOLO系列已成为实时目标检测领域最具影响力的框架之一，历经十余代迭代，不断在速度与精度之间寻求最优平衡。</p>
+        </div>
+        <div>
+          <h3 class="mb-1">前代模型的核心局限</h3>
+          <ul class="bullet-list">
+            <li><strong>NMS后处理延迟</strong> — 依赖非极大值抑制过滤重复预测，增加推理时间</li>
+            <li><strong>DFL导出困难</strong> — Distribution Focal Loss导致ONNX、CoreML等格式转换复杂</li>
+            <li><strong>小目标检测不足</strong> — 对遮挡、密集场景中的小物体检测精度有限</li>
+            <li><strong>训练不稳定</strong> — 损失函数权重固定，易受类别不平衡影响</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="anim mt-2">
+        <div class="highlight-bar">
+          <p>YOLO26 于 <strong>2025年9月</strong> 在伦敦 <strong>YOLO Vision 2025</strong> 大会正式发布，标志着YOLO系列的又一次重大架构革新。</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== Slide 3: Design Philosophy ==================== -->
+  <div class="slide" data-slide="2">
+    <div class="glow glow-yellow" style="bottom: -10%; left: -8%;"></div>
+    <div class="relative">
+      <p class="anim section-label">Design Philosophy</p>
+      <h2 class="anim">YOLO26设计理念</h2>
+
+      <div class="anim steps mt-2">
+        <div class="step">
+          <div class="step-num">S</div>
+          <div>
+            <h4>Simplicity</h4>
+            <p>简洁</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">E</div>
+          <div>
+            <h4>Efficiency</h4>
+            <p>高效</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">I</div>
+          <div>
+            <h4>Innovation</h4>
+            <p>创新</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="anim card-grid cols-2 mt-3">
+        <div class="card">
+          <h3>核心优化目标</h3>
+          <ul class="bullet-list">
+            <li>为<strong>边缘计算</strong>场景深度优化，降低资源消耗</li>
+            <li>面向<strong>机器人</strong>与<strong>移动AI</strong>设备设计</li>
+            <li>追求推理速度与检测精度的最佳平衡</li>
+          </ul>
+        </div>
+        <div class="card">
+          <h3>多任务支持能力</h3>
+          <ul class="bullet-list">
+            <li><strong>目标检测</strong> (Object Detection)</li>
+            <li><strong>实例分割</strong> (Segmentation)</li>
+            <li><strong>图像分类</strong> (Classification)</li>
+            <li><strong>姿态估计</strong> (Pose Estimation)</li>
+            <li><strong>旋转边界框检测</strong> (OBB Detection)</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="anim mt-2">
+        <div class="highlight-bar">
+          <p>YOLO26以"少即是多"为核心理念，通过移除冗余组件、简化推理流程，在保持高精度的同时显著提升部署效率。</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== Slide 4: Remove DFL ==================== -->
+  <div class="slide" data-slide="3">
+    <div class="glow glow-purple" style="top: 5%; right: -8%;"></div>
+    <div class="relative">
+      <p class="anim section-label">Architecture Innovation ①</p>
+      <h2 class="anim">架构创新：移除DFL</h2>
+
+      <div class="anim two-col-wide mt-2">
+        <div>
+          <h3 class="mb-1">什么是DFL？</h3>
+          <p class="mb-2">Distribution Focal Loss（分布焦点损失）在YOLOv8、YOLO11中被用于边界框回归，通过建模边界框坐标的概率分布来提升定位精度。</p>
+
+          <h3 class="mb-1">DFL带来的问题</h3>
+          <ul class="bullet-list">
+            <li>引入额外的<strong>计算开销</strong>，增加推理延迟</li>
+            <li>导致模型导出困难（ONNX、CoreML、TensorRT、TFLite）</li>
+            <li>增加部署流程的<strong>工程复杂度</strong></li>
+            <li>部分量化场景下出现精度退化</li>
+          </ul>
+        </div>
+        <div>
+          <div class="card" style="border-left: 4px solid var(--title);">
+            <h3>移除DFL后的改进</h3>
+            <ul class="bullet-list">
+              <li><strong>简化架构</strong> — 减少模型组件数量</li>
+              <li><strong>降低推理延迟</strong> — 减少计算图复杂度</li>
+              <li><strong>提升跨平台兼容性</strong> — 无缝导出至各类推理引擎</li>
+              <li><strong>精度不降反升</strong> — 配合ProgLoss和STAL实现更优表现</li>
+            </ul>
+          </div>
+          <div class="highlight-bar mt-2">
+            <p>移除DFL体现了YOLO26"简洁至上"的设计哲学：用更少的组件实现更好的效果。</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== Slide 5: NMS-free ==================== -->
+  <div class="slide" data-slide="4">
+    <div class="glow glow-yellow" style="top: -5%; left: -10%;"></div>
+    <div class="relative">
+      <p class="anim section-label">Architecture Innovation ②</p>
+      <h2 class="anim">架构创新：端到端NMS-free推理</h2>
+
+      <div class="anim two-col mt-2">
+        <div>
+          <h3 class="mb-1">传统NMS的局限</h3>
+          <ul class="bullet-list">
+            <li>传统YOLO依赖<strong>NMS后处理</strong>过滤重复预测框</li>
+            <li>需要手动调参（IoU阈值、置信度阈值）</li>
+            <li>NMS本身引入额外计算延迟</li>
+            <li>在密集场景中容易产生漏检或误删</li>
+            <li>难以在GPU上高效并行化</li>
+          </ul>
+
+          <div class="highlight-bar mt-2">
+            <p>NMS是YOLO推理管线中最大的<strong>非端到端瓶颈</strong>，阻碍了真正的实时部署。</p>
+          </div>
+        </div>
+        <div>
+          <h3 class="mb-1">YOLO26的NMS-free方案</h3>
+          <ul class="bullet-list">
+            <li>重新设计<strong>预测头</strong>架构</li>
+            <li>直接输出<strong>非冗余边界框</strong>，无需后处理</li>
+            <li>实现真正的<strong>端到端推理</strong>流程</li>
+          </ul>
+
+          <div class="card mt-2" style="text-align: center; border: 2px solid var(--title);">
+            <p style="font-size: clamp(1.5rem, 3vw, 2.2rem); font-weight: 800; color: var(--title); opacity: 1; margin: 0.2em 0;">CPU推理速度提升高达 43%</p>
+            <p style="opacity: 0.6;">nano模型 &middot; 相比NMS方案</p>
+          </div>
+
+          <div class="anim mt-2">
+            <span class="badge badge-blue">首个采用NMS-free范式的YOLO版本</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== Slide 6: ProgLoss + STAL ==================== -->
+  <div class="slide" data-slide="5">
+    <div class="glow glow-purple" style="bottom: -8%; right: -6%;"></div>
+    <div class="relative">
+      <p class="anim section-label">Architecture Innovation ③</p>
+      <h2 class="anim">架构创新：ProgLoss + STAL</h2>
+
+      <div class="anim card-grid cols-2 mt-2">
+        <div class="card">
+          <div class="mb-1"><span class="badge badge-blue">ProgLoss</span></div>
+          <h3>渐进损失平衡</h3>
+          <ul class="bullet-list">
+            <li><strong>动态调整</strong>各损失分量的权重比例</li>
+            <li>防止主导类别过拟合，提升模型<strong>泛化能力</strong></li>
+            <li>训练过程中自动适应数据分布变化</li>
+            <li>无需手动调参，降低训练门槛</li>
+          </ul>
+          <div class="highlight-bar mt-2">
+            <p>传统固定权重损失函数在类别不平衡场景下表现不佳，ProgLoss通过渐进式平衡策略解决了这一问题。</p>
+          </div>
+        </div>
+        <div class="card">
+          <div class="mb-1"><span class="badge badge-dark">STAL</span></div>
+          <h3>小目标感知标签分配</h3>
+          <ul class="bullet-list">
+            <li><strong>显式优先</strong>为小目标分配正样本标签</li>
+            <li>显著改善<strong>遮挡小目标</strong>的检测精度</li>
+            <li>在COCO和UAV数据集上验证有效</li>
+            <li>比YOLOv12/v13的注意力方案更<strong>轻量高效</strong></li>
+          </ul>
+          <div class="highlight-bar mt-2">
+            <p>小目标检测是实际应用中的核心痛点，STAL通过优化标签分配策略从根本上提升了小目标的学习效果。</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="anim mt-2">
+        <div class="highlight-bar">
+          <p>ProgLoss + STAL 的组合是YOLO26在<strong>不增加推理开销</strong>的前提下提升精度的关键策略，体现了"训练时多思考，推理时少计算"的设计理念。</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== Slide 7: MuSGD ==================== -->
+  <div class="slide" data-slide="6">
+    <div class="glow glow-yellow" style="top: -8%; left: -5%;"></div>
+    <div class="relative">
+      <p class="anim section-label">Architecture Innovation ④</p>
+      <h2 class="anim">架构创新：MuSGD优化器</h2>
+
+      <div class="anim two-col-wide mt-2">
+        <div>
+          <h3 class="mb-1">MuSGD是什么？</h3>
+          <p class="mb-2">MuSGD（Multi-Scale Gradient Descent）融合了SGD优化器的<strong>鲁棒性</strong>与Muon优化器的<strong>自适应特性</strong>，是一种专为视觉模型训练设计的新型优化器。</p>
+
+          <h3 class="mb-1">灵感来源</h3>
+          <div class="highlight-bar">
+            <p>灵感来自大语言模型（LLM）训练领域的最新进展，如 <strong>Kimi K2 by Moonshot AI</strong> 所采用的优化策略。</p>
+          </div>
+        </div>
+        <div>
+          <div class="card">
+            <h3>核心优势</h3>
+            <ul class="bullet-list">
+              <li><strong>更快收敛</strong> — 减少达到目标精度所需的训练轮次</li>
+              <li><strong>更稳定优化</strong> — 训练过程损失曲线更平滑</li>
+              <li><strong>更少训练轮次</strong> — 降低计算资源消耗</li>
+              <li><strong>减少训练重启</strong> — 降低因训练崩溃导致的开发成本</li>
+              <li><strong>缩短开发周期</strong> — 加速模型迭代与实验验证</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <div class="anim card-grid cols-3 mt-3">
+        <div class="card text-center">
+          <p style="font-size: clamp(1.2rem, 2vw, 1.6rem); font-weight: 800; color: var(--title); opacity: 1;">SGD</p>
+          <p>鲁棒性</p>
+        </div>
+        <div class="card text-center">
+          <p style="font-size: clamp(1.2rem, 2vw, 1.6rem); font-weight: 800; color: var(--accent); opacity: 1;">+</p>
+        </div>
+        <div class="card text-center">
+          <p style="font-size: clamp(1.2rem, 2vw, 1.6rem); font-weight: 800; color: var(--title); opacity: 1;">Muon</p>
+          <p>自适应</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== Slide 8: Benchmarks ==================== -->
+  <div class="slide" data-slide="7">
+    <div class="glow glow-purple" style="top: -5%; right: -8%;"></div>
+    <div class="relative">
+      <p class="anim section-label">Performance Benchmarking</p>
+      <h2 class="anim">性能基准测试</h2>
+      <p class="anim subtitle">NVIDIA T4 GPU &middot; TensorRT FP16 &middot; COCO val2017</p>
+
+      <div class="anim mt-1">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>模型</th>
+              <th>mAP (50-95)</th>
+              <th>延迟 (ms/img)</th>
+              <th>参数量</th>
+              <th>特点</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>YOLOv10-N</td>
+              <td>38.1</td>
+              <td>1.85</td>
+              <td>2.3M</td>
+              <td>NMS-free</td>
+            </tr>
+            <tr>
+              <td>RT-DETR-R50</td>
+              <td>48.3</td>
+              <td>4.20</td>
+              <td>42M</td>
+              <td>Transformer</td>
+            </tr>
+            <tr>
+              <td>RT-DETRv2-L</td>
+              <td>50.2</td>
+              <td>5.10</td>
+              <td>46M</td>
+              <td>改进版</td>
+            </tr>
+            <tr>
+              <td>RT-DETRv3-L</td>
+              <td>51.8</td>
+              <td>4.80</td>
+              <td>45M</td>
+              <td>最新版</td>
+            </tr>
+            <tr>
+              <td>DEIM-S</td>
+              <td>46.8</td>
+              <td>3.50</td>
+              <td>18M</td>
+              <td>蒸馏</td>
+            </tr>
+            <tr>
+              <td class="best">YOLO26-m</td>
+              <td class="best">&gt; 51.0</td>
+              <td class="best">~3.2</td>
+              <td class="best">20M</td>
+              <td class="best">NMS-free + ProgLoss</td>
+            </tr>
+            <tr>
+              <td class="best">YOLO26-l</td>
+              <td class="best">&gt; 53.0</td>
+              <td class="best">~5.5</td>
+              <td class="best">43M</td>
+              <td class="best">NMS-free + ProgLoss</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="anim mt-2">
+        <div class="highlight-bar">
+          <p>YOLO26在<strong>精度与速度之间实现了最佳平衡</strong>：YOLO26-m以更少的参数量达到与RT-DETRv3-L相当的精度，同时推理延迟降低约33%。</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== Slide 9: Deployment ==================== -->
+  <div class="slide" data-slide="8">
+    <div class="glow glow-yellow" style="bottom: -10%; left: -6%;"></div>
+    <div class="relative">
+      <p class="anim section-label">Deployment Advantages</p>
+      <h2 class="anim">部署优势</h2>
+
+      <div class="anim card-grid cols-2 mt-2">
+        <div class="card">
+          <h3>多格式导出支持</h3>
+          <ul class="bullet-list">
+            <li><strong>TensorRT</strong> — NVIDIA GPU高性能推理</li>
+            <li><strong>ONNX</strong> — 跨平台通用格式</li>
+            <li><strong>CoreML</strong> — Apple生态部署</li>
+            <li><strong>TFLite</strong> — 移动端与嵌入式设备</li>
+            <li><strong>OpenVINO</strong> — Intel硬件加速</li>
+          </ul>
+        </div>
+        <div class="card">
+          <h3>量化支持</h3>
+          <ul class="bullet-list">
+            <li><strong>FP16半精度</strong> — 2倍推理加速，精度损失极小</li>
+            <li><strong>INT8整数量化</strong> — 4倍推理加速，适用于边缘设备</li>
+            <li>比RT-DETRv3在INT8量化下<strong>更稳定</strong></li>
+            <li>移除DFL后量化兼容性显著提升</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="anim mt-2">
+        <h3 class="mb-1">跨行业应用场景</h3>
+        <div class="card-grid cols-4">
+          <div class="card text-center">
+            <p style="font-size: clamp(1.4rem, 2.5vw, 1.8rem); opacity: 1; margin-bottom: 6px;">&#129302;</p>
+            <p style="font-weight: 600; opacity: 1;">机器人导航</p>
+            <p>实时避障与路径规划</p>
+          </div>
+          <div class="card text-center">
+            <p style="font-size: clamp(1.4rem, 2.5vw, 1.8rem); opacity: 1; margin-bottom: 6px;">&#127981;</p>
+            <p style="font-weight: 600; opacity: 1;">制造缺陷检测</p>
+            <p>产线质量自动检测</p>
+          </div>
+          <div class="card text-center">
+            <p style="font-size: clamp(1.4rem, 2.5vw, 1.8rem); opacity: 1; margin-bottom: 6px;">&#128247;</p>
+            <p style="font-weight: 600; opacity: 1;">智能摄像头</p>
+            <p>安防监控实时分析</p>
+          </div>
+          <div class="card text-center">
+            <p style="font-size: clamp(1.4rem, 2.5vw, 1.8rem); opacity: 1; margin-bottom: 6px;">&#128747;</p>
+            <p style="font-weight: 600; opacity: 1;">无人机</p>
+            <p>航拍目标检测与追踪</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== Slide 10: Conclusion ==================== -->
+  <div class="slide" data-slide="9">
+    <div class="glow glow-purple" style="top: -8%; left: -8%;"></div>
+    <div class="glow glow-yellow" style="bottom: -8%; right: -8%;"></div>
+    <div class="relative">
+      <p class="anim section-label">Conclusion & Future Directions</p>
+      <h2 class="anim">结论与未来方向</h2>
+
+      <div class="anim two-col mt-2">
+        <div>
+          <h3 class="mb-1">核心结论</h3>
+          <div class="highlight-bar">
+            <p>YOLO26是YOLO系列的<strong>范式转变</strong>：以简洁架构实现端到端推理，在精度、速度和部署便捷性之间取得了前所未有的平衡。</p>
+          </div>
+          <ul class="bullet-list mt-2">
+            <li>移除DFL简化架构，提升跨平台兼容性</li>
+            <li>NMS-free推理实现真正的端到端部署</li>
+            <li>ProgLoss + STAL在不增加推理开销下提升精度</li>
+            <li>MuSGD优化器加速训练收敛</li>
+            <li>弥合了<strong>学术创新与工业应用</strong>之间的差距</li>
+          </ul>
+        </div>
+        <div>
+          <h3 class="mb-1">未来研究方向</h3>
+          <div class="card-grid cols-1">
+            <div class="card">
+              <h3>开放词汇 + 基础模型</h3>
+              <p>融合视觉-语言模型能力，实现零样本目标检测</p>
+            </div>
+            <div class="card">
+              <h3>半监督 / 自监督学习</h3>
+              <p>减少标注数据依赖，利用大规模无标注数据</p>
+            </div>
+            <div class="card">
+              <h3>CNN-Transformer混合架构</h3>
+              <p>结合CNN的效率与Transformer的全局建模能力</p>
+            </div>
+            <div class="card">
+              <h3>边缘感知训练</h3>
+              <p>针对边缘设备特性优化训练策略与模型压缩</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== Controls ==================== -->
+  <div class="controls">
+    <button class="btn" id="prevBtn" disabled>
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
+      上一页
+    </button>
+    <span class="page-counter" id="pageCounter">1 / 10</span>
+    <button class="btn" id="nextBtn">
+      下一页
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
+    </button>
+  </div>
+
+  <!-- ==================== Dots ==================== -->
+  <div class="dots" id="dots"></div>
+</div>
+
+<script>
+(function() {
+  'use strict';
+
+  const slides = document.querySelectorAll('.slide');
+  const totalSlides = slides.length;
+  const prevBtn = document.getElementById('prevBtn');
+  const nextBtn = document.getElementById('nextBtn');
+  const pageCounter = document.getElementById('pageCounter');
+  const progressBar = document.getElementById('progressBar');
+  const dotsContainer = document.getElementById('dots');
+
+  let currentSlide = 0;
+  let isTransitioning = false;
+
+  // Create dots
+  for (let i = 0; i < totalSlides; i++) {
+    const dot = document.createElement('button');
+    dot.classList.add('dot');
+    if (i === 0) dot.classList.add('active');
+    dot.setAttribute('aria-label', 'Go to slide ' + (i + 1));
+    dot.addEventListener('click', function() {
+      goToSlide(i);
+    });
+    dotsContainer.appendChild(dot);
+  }
+
+  const dots = dotsContainer.querySelectorAll('.dot');
+
+  function updateUI() {
+    // Page counter
+    pageCounter.textContent = (currentSlide + 1) + ' / ' + totalSlides;
+
+    // Progress bar
+    var progress = ((currentSlide + 1) / totalSlides) * 100;
+    progressBar.style.width = progress + '%';
+
+    // Buttons
+    prevBtn.disabled = (currentSlide === 0);
+    nextBtn.disabled = (currentSlide === totalSlides - 1);
+
+    // Dots
+    dots.forEach(function(dot, index) {
+      if (index === currentSlide) {
+        dot.classList.add('active');
+      } else {
+        dot.classList.remove('active');
+      }
+    });
+  }
+
+  function goToSlide(index) {
+    if (index === currentSlide || isTransitioning) return;
+    if (index < 0 || index >= totalSlides) return;
+
+    isTransitioning = true;
+
+    var direction = index > currentSlide ? 'forward' : 'backward';
+    var oldSlide = slides[currentSlide];
+    var newSlide = slides[index];
+
+    // Exit old slide
+    if (direction === 'forward') {
+      oldSlide.classList.add('exit-up');
+    }
+    oldSlide.classList.remove('active');
+
+    // Enter new slide
+    newSlide.classList.add('active');
+
+    currentSlide = index;
+    updateUI();
+
+    setTimeout(function() {
+      oldSlide.classList.remove('exit-up');
+      isTransitioning = false;
+    }, 500);
+  }
+
+  function nextSlide() {
+    goToSlide(currentSlide + 1);
+  }
+
+  function prevSlide() {
+    goToSlide(currentSlide - 1);
+  }
+
+  // Button events
+  nextBtn.addEventListener('click', nextSlide);
+  prevBtn.addEventListener('click', prevSlide);
+
+  // Keyboard navigation
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'ArrowRight' || e.key === 'ArrowDown' || e.key === ' ') {
+      e.preventDefault();
+      nextSlide();
+    } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+      e.preventDefault();
+      prevSlide();
+    } else if (e.key === 'Home') {
+      e.preventDefault();
+      goToSlide(0);
+    } else if (e.key === 'End') {
+      e.preventDefault();
+      goToSlide(totalSlides - 1);
+    }
+  });
+
+  // Touch support
+  var touchStartX = 0;
+  var touchStartY = 0;
+
+  document.addEventListener('touchstart', function(e) {
+    touchStartX = e.changedTouches[0].screenX;
+    touchStartY = e.changedTouches[0].screenY;
+  }, { passive: true });
+
+  document.addEventListener('touchend', function(e) {
+    var touchEndX = e.changedTouches[0].screenX;
+    var touchEndY = e.changedTouches[0].screenY;
+    var diffX = touchStartX - touchEndX;
+    var diffY = touchStartY - touchEndY;
+
+    if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 50) {
+      if (diffX > 0) {
+        nextSlide();
+      } else {
+        prevSlide();
+      }
+    }
+  }, { passive: true });
+
+  // Initialize
+  updateUI();
+})();
+</script>
+</body>
+</html>

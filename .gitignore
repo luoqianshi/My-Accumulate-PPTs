@@ -1,0 +1,9 @@
+raw/*
+ingest/*
+
+# private
+.lqs/*
+
+# Agents
+.claude/
+.codebuddy/
