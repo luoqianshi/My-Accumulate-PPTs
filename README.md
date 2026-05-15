@@ -1,6 +1,7 @@
-# Accumulate-PPTs
+# My-Accumulate-PPTs
 
-个人 HTML 演示文稿（PPT）仓库，用于存放和管理基于 HTML 的幻灯片作品、论文精读汇报与相关制作技能。
+- 个人 HTML 演示文稿（PPT）仓库，用于存放和管理基于 HTML 的幻灯片作品、论文精读汇报与相关制作技能。
+- 区别于 [Accumulate-PPTs](https://github.com/luoqianshi/Accumulate-PPTs)，本仓库更关注个人真实论文的演示文稿收纳，而不是供社区使用的Skill模板代码仓库。
 <p align="center">
   <img src="assets\accmulate-ppts.png" alt="Accumulate-PPTs" width="85%">
 </p>
